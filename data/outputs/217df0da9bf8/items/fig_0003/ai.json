@@ -1,0 +1,16 @@
+{
+  "subtype": "line_plot",
+  "subtype_confidence": 0.16666666666666666,
+  "conditions": [],
+  "material_candidates": [],
+  "keywords": [],
+  "method": "heuristic",
+  "debug": {
+    "scores": {
+      "microscopy": 0.0,
+      "spectrum": 0.3,
+      "line_plot": 0.5
+    },
+    "white_ratio": 0.8993029845971022
+  }
+}

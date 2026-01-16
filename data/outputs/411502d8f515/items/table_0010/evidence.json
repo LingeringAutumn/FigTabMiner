@@ -1,0 +1,17 @@
+{
+  "page_index": 7,
+  "bbox": [
+    96.82892899999999,
+    839.0407560624999,
+    604.4875429062977,
+    1220.8096279375
+  ],
+  "caption_text": "No caption found.",
+  "caption_bbox": null,
+  "snippet_text": "",
+  "extraction_trace": [
+    "Extracted from PDF",
+    "Aligned Caption",
+    "Enriched with AI"
+  ]
+}

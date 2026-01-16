@@ -1,0 +1,22 @@
+{
+  "page_index": 15,
+  "bbox": [
+    144.0,
+    143.9957275390625,
+    1079.988525390625,
+    611.989990234375
+  ],
+  "caption_text": "Figure (5)",
+  "caption_bbox": [
+    144.0,
+    619.063720703125,
+    249.25360107421875,
+    642.97412109375
+  ],
+  "snippet_text": "Figure (5)\nUV-Visible absorption spectra for all 10 aromatic molecules. Thick lines rep-\nresent the ML spectra computed with the ensemble method (dashed) and with the third\norder cumulant scheme (solid).21 Thin lines represent the experimental references.6,72–76 The\nspectra of the molecules not included in training set are highlighted with blue graph frames",
+  "extraction_trace": [
+    "Extracted from PDF",
+    "Aligned Caption",
+    "Enriched with AI"
+  ]
+}

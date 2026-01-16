@@ -1,0 +1,34 @@
+{
+  "subtype": "table",
+  "subtype_confidence": 1.0,
+  "conditions": [
+    {
+      "name": "temperature",
+      "value": "170°C",
+      "source": "regex_heuristic",
+      "confidence": 0.8
+    },
+    {
+      "name": "time",
+      "value": "24 h",
+      "source": "regex_heuristic",
+      "confidence": 0.8
+    },
+    {
+      "name": "time",
+      "value": "12 h",
+      "source": "regex_heuristic",
+      "confidence": 0.8
+    },
+    {
+      "name": "time",
+      "value": "24h",
+      "source": "regex_heuristic",
+      "confidence": 0.8
+    }
+  ],
+  "material_candidates": [],
+  "keywords": [],
+  "method": "heuristic",
+  "debug": {}
+}

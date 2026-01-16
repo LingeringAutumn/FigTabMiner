@@ -1,0 +1,56 @@
+{
+  "subtype": "microscopy",
+  "subtype_confidence": 0.5,
+  "conditions": [
+    {
+      "name": "temperature",
+      "value": "170°C",
+      "source": "regex_heuristic",
+      "confidence": 0.8
+    },
+    {
+      "name": "temperature",
+      "value": "51.23K",
+      "source": "regex_heuristic",
+      "confidence": 0.8
+    },
+    {
+      "name": "wavelength",
+      "value": "200 nm",
+      "source": "regex_heuristic",
+      "confidence": 0.8
+    },
+    {
+      "name": "time",
+      "value": "24 h",
+      "source": "regex_heuristic",
+      "confidence": 0.8
+    },
+    {
+      "name": "time",
+      "value": "12 h",
+      "source": "regex_heuristic",
+      "confidence": 0.8
+    },
+    {
+      "name": "time",
+      "value": "24h",
+      "source": "regex_heuristic",
+      "confidence": 0.8
+    }
+  ],
+  "material_candidates": [],
+  "keywords": [
+    "SEM"
+  ],
+  "method": "ocr_heuristic",
+  "debug": {
+    "ocr_text": "oeunm NSSnm ounM 200 nm EHT 12.00kv Signal InLens 18 Jun 2021 WD 8.3 mm Mag 51.23KX",
+    "scores": {
+      "microscopy": 1.5,
+      "spectrum": 0.0,
+      "line_plot": 0.0
+    },
+    "white_ratio": 0.08315375908754516
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "subtype": "spectrum",
+  "subtype_confidence": 0.7666666666666666,
+  "conditions": [],
+  "material_candidates": [],
+  "keywords": [
+    "UV-Vis",
+    "Spectra"
+  ],
+  "method": "heuristic",
+  "debug": {
+    "scores": {
+      "microscopy": 0.0,
+      "spectrum": 2.3,
+      "line_plot": 0.5
+    },
+    "white_ratio": 0.9064513917455094
+  }
+}

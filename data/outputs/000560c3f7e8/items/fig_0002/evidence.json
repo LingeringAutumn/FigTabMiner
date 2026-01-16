@@ -1,0 +1,22 @@
+{
+  "page_index": 3,
+  "bbox": [
+    602.8400268554688,
+    1069.1400146484375,
+    1061.4000244140625,
+    1472.739990234375
+  ],
+  "caption_text": "Fig.3). ",
+  "caption_bbox": [
+    113.27999877929688,
+    1030.6759033203125,
+    183.4080047607422,
+    1057.243896484375
+  ],
+  "snippet_text": "the larger distorted cubes. As the reaction time increased to 24 hours, the morphology of the iron \noxide nanoparticles changed from elongated rods to distorted cubes; also, their size increased (see \nFig.3). \nFigure 3. SEM Images of the synthesised Iron oxide nanoparticles with reaction times A) 12 hrs, \nand B) 24hrs at 170°C. ",
+  "extraction_trace": [
+    "Extracted from PDF",
+    "Aligned Caption",
+    "Enriched with AI"
+  ]
+}

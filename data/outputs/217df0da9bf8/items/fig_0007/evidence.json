@@ -1,0 +1,22 @@
+{
+  "page_index": 20,
+  "bbox": [
+    144.0,
+    143.9957275390625,
+    1079.988525390625,
+    611.989990234375
+  ],
+  "caption_text": "Figure (7)",
+  "caption_bbox": [
+    144.0,
+    619.063720703125,
+    247.7472381591797,
+    642.97412109375
+  ],
+  "snippet_text": "Figure (7)\nTesting performance for the 10-molecule model. εML is computed by averaging\nε predictions from the 10-fold cross-validation. εQC is the quantum mechanically computed\nexcitation energies for the second state.\nFigure (8)",
+  "extraction_trace": [
+    "Extracted from PDF",
+    "Aligned Caption",
+    "Enriched with AI"
+  ]
+}

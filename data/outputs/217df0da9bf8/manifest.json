@@ -1,0 +1,335 @@
+{
+  "meta": {
+    "version": "figtabminer-baseline-v1",
+    "doc_id": "217df0da9bf8",
+    "source_pdf": "2112.02169v2.pdf",
+    "created_at": "2026-01-16T23:15:07.257027",
+    "note": "baseline with heuristic alignment"
+  },
+  "capabilities": {
+    "ocr": false,
+    "camelot": false
+  },
+  "items": [
+    {
+      "item_id": "fig_0001",
+      "type": "figure",
+      "subtype": "spectrum",
+      "page_index": 4,
+      "bbox": [
+        144.0,
+        863.6077270507812,
+        1079.98779296875,
+        1162.77392578125
+      ],
+      "caption": "Figure (1)",
+      "evidence_snippet": "diﬀerent combinations of the following functional groups: –NH2 (amine), –OH (hydroxyl),\n–OCH3 (methoxy).\nFigure (1)\nSchematics of the ten aromatic molecules used in this study.\nFirst-Principles Molecular Dynamics\nThe calculation of the UV-visible absorption spectra follows a multiscale approach which\ncombines FPMD and excited state calculation. This approach accurately predict line shapes",
+      "ai_annotations": {
+        "subtype": "spectrum",
+        "subtype_confidence": 0.7666666666666666,
+        "conditions": [],
+        "material_candidates": [],
+        "keywords": [
+          "UV-Vis",
+          "Spectra"
+        ],
+        "method": "heuristic",
+        "debug": {
+          "scores": {
+            "microscopy": 0.0,
+            "spectrum": 2.3,
+            "line_plot": 0.5
+          },
+          "white_ratio": 0.9149786275105968
+        }
+      },
+      "artifacts": {
+        "preview_png": "items/fig_0001/preview.png",
+        "ai_json": "items/fig_0001/ai.json"
+      }
+    },
+    {
+      "item_id": "fig_0002",
+      "type": "figure",
+      "subtype": "line_plot",
+      "page_index": 11,
+      "bbox": [
+        144.0,
+        824.0457763671875,
+        1079.988525390625,
+        1292.0400390625
+      ],
+      "caption": "Figure (2)",
+      "evidence_snippet": "from the 7-molecule model, the MAE are merely around half of the 70 meV. Hence, no\nsigniﬁcant error is introduced by both ML models.\nFigure (2)\nTesting performance for the 10-molecule model. εML is computed by averaging\nε predictions from the 10-fold cross-validation. εQC is the quantum mechanically computed\nexcitation energies for the ﬁrst state.\n12",
+      "ai_annotations": {
+        "subtype": "line_plot",
+        "subtype_confidence": 0.16666666666666666,
+        "conditions": [],
+        "material_candidates": [],
+        "keywords": [],
+        "method": "heuristic",
+        "debug": {
+          "scores": {
+            "microscopy": 0.0,
+            "spectrum": 0.3,
+            "line_plot": 0.5
+          },
+          "white_ratio": 0.9043740573152338
+        }
+      },
+      "artifacts": {
+        "preview_png": "items/fig_0002/preview.png",
+        "ai_json": "items/fig_0002/ai.json"
+      }
+    },
+    {
+      "item_id": "fig_0003",
+      "type": "figure",
+      "subtype": "line_plot",
+      "page_index": 12,
+      "bbox": [
+        144.0,
+        143.9957275390625,
+        1079.988525390625,
+        611.989990234375
+      ],
+      "caption": "Figure (3)",
+      "evidence_snippet": "Figure (3)\nTesting performance for the 7-molecule model. εML is computed by averaging\nε predictions from the 10-fold cross-validation. εQC is the quantum mechanically computed\nexcitation energies for the ﬁrst state. Molecules used in model generalization are indicated\nwith blue panels.",
+      "ai_annotations": {
+        "subtype": "line_plot",
+        "subtype_confidence": 0.16666666666666666,
+        "conditions": [],
+        "material_candidates": [],
+        "keywords": [],
+        "method": "heuristic",
+        "debug": {
+          "scores": {
+            "microscopy": 0.0,
+            "spectrum": 0.3,
+            "line_plot": 0.5
+          },
+          "white_ratio": 0.8993029845971022
+        }
+      },
+      "artifacts": {
+        "preview_png": "items/fig_0003/preview.png",
+        "ai_json": "items/fig_0003/ai.json"
+      }
+    },
+    {
+      "item_id": "fig_0004",
+      "type": "figure",
+      "subtype": "spectrum",
+      "page_index": 14,
+      "bbox": [
+        144.0,
+        340.59576416015625,
+        1079.988525390625,
+        808.5900268554688
+      ],
+      "caption": "Figure (4)",
+      "evidence_snippet": "and thus allowing us to compute the spectra for thousands of molecular conﬁgurations at\nnearly no additional computational cost.\nFigure (4)\nUV-Visible absorption spectra for all 10 aromatic molecules. Thick lines repre-\nsent the ML spectra predicted using the 10-molecule model and computed with the ensemble\nmethod. Thin lines represent the experimental reference.6,72–76 Dashed lines represent the\ncalculated spectra using the multiscale quantum chemical method.",
+      "ai_annotations": {
+        "subtype": "spectrum",
+        "subtype_confidence": 0.7666666666666666,
+        "conditions": [],
+        "material_candidates": [],
+        "keywords": [
+          "Spectra",
+          "UV-Vis",
+          "SEM"
+        ],
+        "method": "heuristic",
+        "debug": {
+          "scores": {
+            "microscopy": 1.0,
+            "spectrum": 2.3,
+            "line_plot": 0.5
+          },
+          "white_ratio": 0.9053201700260524
+        }
+      },
+      "artifacts": {
+        "preview_png": "items/fig_0004/preview.png",
+        "ai_json": "items/fig_0004/ai.json"
+      }
+    },
+    {
+      "item_id": "fig_0005",
+      "type": "figure",
+      "subtype": "spectrum",
+      "page_index": 15,
+      "bbox": [
+        144.0,
+        143.9957275390625,
+        1079.988525390625,
+        611.989990234375
+      ],
+      "caption": "Figure (5)",
+      "evidence_snippet": "Figure (5)\nUV-Visible absorption spectra for all 10 aromatic molecules. Thick lines rep-\nresent the ML spectra computed with the ensemble method (dashed) and with the third\norder cumulant scheme (solid).21 Thin lines represent the experimental references.6,72–76 The\nspectra of the molecules not included in training set are highlighted with blue graph frames",
+      "ai_annotations": {
+        "subtype": "spectrum",
+        "subtype_confidence": 0.7666666666666666,
+        "conditions": [],
+        "material_candidates": [],
+        "keywords": [
+          "Spectra",
+          "UV-Vis",
+          "SEM"
+        ],
+        "method": "heuristic",
+        "debug": {
+          "scores": {
+            "microscopy": 1.0,
+            "spectrum": 2.3,
+            "line_plot": 0.5
+          },
+          "white_ratio": 0.8970839617898442
+        }
+      },
+      "artifacts": {
+        "preview_png": "items/fig_0005/preview.png",
+        "ai_json": "items/fig_0005/ai.json"
+      }
+    },
+    {
+      "item_id": "fig_0006",
+      "type": "figure",
+      "subtype": "line_plot",
+      "page_index": 19,
+      "bbox": [
+        144.0,
+        143.9957275390625,
+        1079.988525390625,
+        611.989990234375
+      ],
+      "caption": "Figure (6)",
+      "evidence_snippet": "Figure (6)\nLinear decomposition analysis from the 7-molecule model. %group are computed\nby averaging the excitation energy predictions of 5000 frames.\nMachine Learning Higher Excited States\nTo explore the possibility of extending our machine learning method, we constructed",
+      "ai_annotations": {
+        "subtype": "line_plot",
+        "subtype_confidence": 0.16666666666666666,
+        "conditions": [],
+        "material_candidates": [],
+        "keywords": [],
+        "method": "heuristic",
+        "debug": {
+          "scores": {
+            "microscopy": 0.0,
+            "spectrum": 0.3,
+            "line_plot": 0.5
+          },
+          "white_ratio": 0.8382192970428265
+        }
+      },
+      "artifacts": {
+        "preview_png": "items/fig_0006/preview.png",
+        "ai_json": "items/fig_0006/ai.json"
+      }
+    },
+    {
+      "item_id": "fig_0007",
+      "type": "figure",
+      "subtype": "line_plot",
+      "page_index": 20,
+      "bbox": [
+        144.0,
+        143.9957275390625,
+        1079.988525390625,
+        611.989990234375
+      ],
+      "caption": "Figure (7)",
+      "evidence_snippet": "Figure (7)\nTesting performance for the 10-molecule model. εML is computed by averaging\nε predictions from the 10-fold cross-validation. εQC is the quantum mechanically computed\nexcitation energies for the second state.\nFigure (8)",
+      "ai_annotations": {
+        "subtype": "line_plot",
+        "subtype_confidence": 0.16666666666666666,
+        "conditions": [],
+        "material_candidates": [],
+        "keywords": [],
+        "method": "heuristic",
+        "debug": {
+          "scores": {
+            "microscopy": 0.0,
+            "spectrum": 0.3,
+            "line_plot": 0.5
+          },
+          "white_ratio": 0.8987019516431282
+        }
+      },
+      "artifacts": {
+        "preview_png": "items/fig_0007/preview.png",
+        "ai_json": "items/fig_0007/ai.json"
+      }
+    },
+    {
+      "item_id": "fig_0008",
+      "type": "figure",
+      "subtype": "spectrum",
+      "page_index": 20,
+      "bbox": [
+        144.0,
+        762.4217529296875,
+        1079.988525390625,
+        1230.416015625
+      ],
+      "caption": "Figure (8)",
+      "evidence_snippet": "ε predictions from the 10-fold cross-validation. εQC is the quantum mechanically computed\nexcitation energies for the second state.\nFigure (8)\nUV-Visible absorption spectra for all 10 aromatic molecules, including the ﬁrst\ntwo excited states. Thick lines correspond to the ML spectra predicted using the 10-molecule\nmodel. Dotted lines represent the calculated spectra using the multiscale quantum chemical\nmethod.",
+      "ai_annotations": {
+        "subtype": "spectrum",
+        "subtype_confidence": 0.7666666666666666,
+        "conditions": [],
+        "material_candidates": [],
+        "keywords": [
+          "UV-Vis",
+          "Spectra"
+        ],
+        "method": "heuristic",
+        "debug": {
+          "scores": {
+            "microscopy": 0.0,
+            "spectrum": 2.3,
+            "line_plot": 0.5
+          },
+          "white_ratio": 0.9064513917455094
+        }
+      },
+      "artifacts": {
+        "preview_png": "items/fig_0008/preview.png",
+        "ai_json": "items/fig_0008/ai.json"
+      }
+    },
+    {
+      "item_id": "fig_0009",
+      "type": "figure",
+      "subtype": "line_plot",
+      "page_index": 35,
+      "bbox": [
+        378.0,
+        224.9739990234375,
+        846.0,
+        476.9739990234375
+      ],
+      "caption": "No caption found.",
+      "evidence_snippet": "",
+      "ai_annotations": {
+        "subtype": "line_plot",
+        "subtype_confidence": 0.16666666666666666,
+        "conditions": [],
+        "material_candidates": [],
+        "keywords": [],
+        "method": "heuristic",
+        "debug": {
+          "scores": {
+            "microscopy": 0.0,
+            "spectrum": 0.3,
+            "line_plot": 0.5
+          },
+          "white_ratio": 0.8611450278116944
+        }
+      },
+      "artifacts": {
+        "preview_png": "items/fig_0009/preview.png",
+        "ai_json": "items/fig_0009/ai.json"
+      }
+    }
+  ]
+}

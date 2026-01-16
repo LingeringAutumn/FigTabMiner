@@ -1,0 +1,22 @@
+{
+  "page_index": 4,
+  "bbox": [
+    144.0,
+    863.6077270507812,
+    1079.98779296875,
+    1162.77392578125
+  ],
+  "caption_text": "Figure (1)",
+  "caption_bbox": [
+    239.28599548339844,
+    1210.0777587890625,
+    343.0332336425781,
+    1233.9881591796875
+  ],
+  "snippet_text": "diﬀerent combinations of the following functional groups: –NH2 (amine), –OH (hydroxyl),\n–OCH3 (methoxy).\nFigure (1)\nSchematics of the ten aromatic molecules used in this study.\nFirst-Principles Molecular Dynamics\nThe calculation of the UV-visible absorption spectra follows a multiscale approach which\ncombines FPMD and excited state calculation. This approach accurately predict line shapes",
+  "extraction_trace": [
+    "Extracted from PDF",
+    "Aligned Caption",
+    "Enriched with AI"
+  ]
+}

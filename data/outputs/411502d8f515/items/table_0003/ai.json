@@ -1,0 +1,9 @@
+{
+  "subtype": "table",
+  "subtype_confidence": 1.0,
+  "conditions": [],
+  "material_candidates": [],
+  "keywords": [],
+  "method": "heuristic",
+  "debug": {}
+}
