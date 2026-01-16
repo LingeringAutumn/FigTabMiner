@@ -1,0 +1,22 @@
+{
+  "page_index": 16,
+  "bbox": [
+    200.29983520507812,
+    763.1484375,
+    1023.6297607421875,
+    1211.6484375
+  ],
+  "caption_text": "Figure 7 Contrast evolution due to the electron-beam-induced deposition in LVSEM images of polymer-sorted ",
+  "caption_bbox": [
+    225.24000549316406,
+    1250.7119140625,
+    1075.15869140625,
+    1275.6240234375
+  ],
+  "snippet_text": "are thus determined as summarized in Figure 7e. \n \nFigure 7 Contrast evolution due to the electron-beam-induced deposition in LVSEM images of polymer-sorted \nCNT array obtained by the Inlens detector at a WD of 5 mm during the repeated scan process. (a) The first scan image. \n(b) The second scan image. (c) The third scan image. (d) Smoothed line profiles along the long side of the rectangles in (a, \nb, c) and averaged along the short side. (e) Topographic and charge contrast values of the three images. Yellow arrows \nindicate the three rods in (b, c) corresponding to the three peaks in (d). (Zeiss GEMINI) ",
+  "extraction_trace": [
+    "Extracted from PDF",
+    "Aligned Caption",
+    "Enriched with AI"
+  ]
+}

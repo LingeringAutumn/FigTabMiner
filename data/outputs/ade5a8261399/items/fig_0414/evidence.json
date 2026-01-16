@@ -1,0 +1,22 @@
+{
+  "page_index": 29,
+  "bbox": [
+    180.19509887695312,
+    339.54266357421875,
+    1010.60205078125,
+    478.4552001953125
+  ],
+  "caption_text": "Table 1 Imaging parameters of the two SEM instruments. The beam current is measured by a Faraday ",
+  "caption_bbox": [
+    180.0,
+    161.23777770996094,
+    1003.0349731445312,
+    188.97314453125
+  ],
+  "snippet_text": "Table 1 Imaging parameters of the two SEM instruments. The beam current is measured by a Faraday \ncup stemmed on the sample stage in the Gemini 500/300, and measured by a Faraday cup and a \npicoampere meter without the stage bias in the Regulus 8230. \n \n ",
+  "extraction_trace": [
+    "Extracted from PDF",
+    "Aligned Caption",
+    "Enriched with AI"
+  ]
+}

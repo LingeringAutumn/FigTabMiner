@@ -1,0 +1,22 @@
+{
+  "page_index": 14,
+  "bbox": [
+    260.15999999999997,
+    395.88003635262044,
+    987.36,
+    751.4522871857014
+  ],
+  "caption_text": "Figure (4)",
+  "caption_bbox": [
+    144.0,
+    815.6636962890625,
+    247.77114868164062,
+    839.5740966796875
+  ],
+  "snippet_text": "and thus allowing us to compute the spectra for thousands of molecular conﬁgurations at\nnearly no additional computational cost.\nFigure (4)\nUV-Visible absorption spectra for all 10 aromatic molecules. Thick lines repre-\nsent the ML spectra predicted using the 10-molecule model and computed with the ensemble\nmethod. Thin lines represent the experimental reference.6,72–76 Dashed lines represent the\ncalculated spectra using the multiscale quantum chemical method.",
+  "extraction_trace": [
+    "Extracted from PDF",
+    "Aligned Caption",
+    "Enriched with AI"
+  ]
+}

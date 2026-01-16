@@ -1,0 +1,22 @@
+{
+  "page_index": 11,
+  "bbox": [
+    260.64,
+    879.5734625870948,
+    987.36,
+    1234.6658588306573
+  ],
+  "caption_text": "Figure (2)",
+  "caption_bbox": [
+    144.0,
+    1299.1136474609375,
+    247.7472381591797,
+    1323.0240478515625
+  ],
+  "snippet_text": "from the 7-molecule model, the MAE are merely around half of the 70 meV. Hence, no\nsigniﬁcant error is introduced by both ML models.\nFigure (2)\nTesting performance for the 10-molecule model. εML is computed by averaging\nε predictions from the 10-fold cross-validation. εQC is the quantum mechanically computed\nexcitation energies for the ﬁrst state.\n12",
+  "extraction_trace": [
+    "Extracted from PDF",
+    "Aligned Caption",
+    "Enriched with AI"
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "page_index": 18,
+  "bbox": [
+    144.74884033203125,
+    267.297607421875,
+    1079.263427734375,
+    576.8440551757812
+  ],
+  "caption_text": "Figure 8 LVSEM contrast separation of a CVD-grown CNT using a Hitachi Regulus ",
+  "caption_bbox": [
+    216.719970703125,
+    615.0958862304688,
+    1085.284912109375,
+    648.3118896484375
+  ],
+  "snippet_text": "charging electrons is large enough to drown out the other contrasts, as in Figure 5d.  \n \nFigure 8 LVSEM contrast separation of a CVD-grown CNT using a Hitachi Regulus \n8230. (a-b) LVSEM images recorded by (a) the Top detector and (b) the Upper detector at \na deceleration voltage of -300 V. (c) Corresponding line profiles averaged along the CNT. \nThe width is taken as the FWHM after fitting with Gaussian curves.  \n3.6.Limitations of the density determination of polymer-sorted CNT arrays using LVSEM ",
+  "extraction_trace": [
+    "Extracted from PDF",
+    "Aligned Caption",
+    "Enriched with AI"
+  ]
+}

@@ -7,8 +7,9 @@
     "UV-Vis",
     "Spectra"
   ],
-  "method": "heuristic",
+  "method": "ocr_heuristic",
   "debug": {
+    "ocr_text": "HO HO OH 1 0.02 AILIhL 0.06 HO 0.04 3 4.2 4.8 5.4 6.0 4.2 4.8 5.4 6.0 4.2 4.8 5.4 6.0 4.2 4.8 5.4 6.0 4.2 4.8 5.4 6.0 8 [eV]",
     "scores": {
       "microscopy": 0.0,
       "spectrum": 2.3,

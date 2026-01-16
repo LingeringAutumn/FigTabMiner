@@ -1,0 +1,39 @@
+{
+  "subtype": "microscopy",
+  "subtype_confidence": 0.3333333333333333,
+  "conditions": [
+    {
+      "name": "wavelength",
+      "value": "200 nm",
+      "source": "regex_heuristic",
+      "confidence": 0.8
+    },
+    {
+      "name": "wavelength",
+      "value": "200 nm",
+      "source": "regex_heuristic",
+      "confidence": 0.8
+    },
+    {
+      "name": "wavelength",
+      "value": "200 nm",
+      "source": "regex_heuristic",
+      "confidence": 0.8
+    }
+  ],
+  "material_candidates": [],
+  "keywords": [
+    "vs",
+    "SEM"
+  ],
+  "method": "ocr_heuristic",
+  "debug": {
+    "ocr_text": "Jia DA Itt HT 200 nm Ist scan 200 nm 2nd scan 200 nm Brd scan (d) Zrd fame Topographic contrast 2nd Itic Charge contrast 3t mrame 1 J 8 0,32 0.25 L 100 position (nm) Irame",
+    "scores": {
+      "microscopy": 1.0,
+      "spectrum": 0.0,
+      "line_plot": 1.0
+    },
+    "white_ratio": 0.49585575420933864
+  }
+}

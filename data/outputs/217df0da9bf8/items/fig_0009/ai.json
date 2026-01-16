@@ -4,8 +4,9 @@
   "conditions": [],
   "material_candidates": [],
   "keywords": [],
-  "method": "heuristic",
+  "method": "ocr_heuristic",
   "debug": {
+    "ocr_text": "Atomic Auncnine Absorption Envlronmiene hiling Specta Wrnsier 3 8 40 - 2  46 48 Tev) Luannin",
     "scores": {
       "microscopy": 0.0,
       "spectrum": 0.3,

@@ -1,0 +1,22 @@
+{
+  "page_index": 28,
+  "bbox": [
+    205.26370239257812,
+    1006.1383056640625,
+    1009.196044921875,
+    1315.58447265625
+  ],
+  "caption_text": "Figure S6 Statistics of the number of CNTs in 1 μm in the typical region. (a) A LVSEM image ",
+  "caption_bbox": [
+    179.99139404296875,
+    1346.85009765625,
+    947.260986328125,
+    1374.58544921875
+  ],
+  "snippet_text": " \n \nFigure S6 Statistics of the number of CNTs in 1 μm in the typical region. (a) A LVSEM image \nobtained by the Inlens detector at a WD of 1 mm. (b) Corresponding line profile indicating 78 peaks in \n1 μm, and the whole region looks similar. The region was characterized by STEM after SEM imaging. \nTop\nM",
+  "extraction_trace": [
+    "Extracted from PDF",
+    "Aligned Caption",
+    "Enriched with AI"
+  ]
+}

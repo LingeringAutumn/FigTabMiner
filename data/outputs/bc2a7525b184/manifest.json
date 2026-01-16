@@ -1,0 +1,162 @@
+{
+  "meta": {
+    "version": "figtabminer-baseline-v1",
+    "doc_id": "bc2a7525b184",
+    "source_pdf": "2508.08441v1.pdf",
+    "created_at": "2026-01-17T00:52:38.045960",
+    "note": "baseline with heuristic alignment"
+  },
+  "capabilities": {
+    "ocr": true,
+    "camelot": true
+  },
+  "items": [
+    {
+      "item_id": "fig_0001",
+      "type": "figure",
+      "subtype": "spectrum",
+      "page_index": 3,
+      "bbox": [
+        144.0,
+        144.01303100585938,
+        1012.4585571289062,
+        632.4219970703125
+      ],
+      "caption": "Fig. 1: Overview of the training pipeline for structure elucidation. Characteristic spectral peaks",
+      "evidence_snippet": "Fig. 1: Overview of the training pipeline for structure elucidation. Characteristic spectral peaks\nare extracted from raw IR, Raman, UV, NMR, or MS data and used to construct natural language\nprompts. These are input to a frozen large language model fine-tuned via LoRA. The model is trained\nto autoregressively generate molecular structures in SMILES format, supervised by the ground-truth\nsequence.",
+      "ai_annotations": {
+        "subtype": "spectrum",
+        "subtype_confidence": 1.0,
+        "conditions": [],
+        "material_candidates": [],
+        "keywords": [
+          "Spectra",
+          "TEM",
+          "Raman",
+          "UV-Vis"
+        ],
+        "method": "ocr_heuristic",
+        "debug": {
+          "ocr_text": "DECODER LORA COuLuaon Predicted Molecule DECODER SMILES: Cccc(ciO B = 0 DECODER Backbole B € DECODER Pretrained Weights DECODER W € Rdxd A = N(0,6- DECODER A € Rixr Modcl Dimcnsionality: 6144 ~lim_startl?systemln System Prompt<lim_endlzInslim_startl>userlnHuman Prompt<lim_endl?Inslim_startl-assistantin<think>Inln</think>Inln CYou chemist; Gwen provide the SMILES of the compound ] (Givon mulliplu specira Ihoy MFC-shiftsl\": 1\"77.14,54.54. Unscn Ina (ormal HASMILES: Ramar UV-Vis #C/\"H NMR HSOC NMR Mass Wavanumbcrs 3012.57 WNnvenumbers.2877 0 ^ Energies: 6.78 , C-shilts 5454,38 24 , H-shifts: L 16,0.91, MS` 28 0 20 30.0,31. 1554.06,1528.34.1278.97 903, 2927 2951,0,298 Intensines: 0.27.1,0 52,30,05 3.78,1,36 0,39.0,41.0,42.0,43.0. 41451, 1421,37 20,3008, Widths: 021,1,32 Intensines 59,0, 34, C-shifts.23 46 14.18, Intensities 0,003 0,099 Intonsitios 0,.22,0,68,0. Intensities:0 21,0.33,1.0 19,06,67.9 42.,02,42 02 0,014,0.481,0.005 0.247, 58,1.0.0.47 0 31 52,0.17 Hahila 62,3,01, Intonsitics 0,0.G7,0 0026 033 Widths: . 66.53,15.75,66. Widths:7 22,3.38,17.65,6 3.43 330 330 33 Ddldluct type: [Mi+ 713,13.85.202.45,8.31 35.15,53,5.43 Untensines: 0,34,0.11, Collision 0 13 Rrxk energy:",
+          "scores": {
+            "microscopy": 1.0,
+            "spectrum": 3.0,
+            "line_plot": 0.0
+          },
+          "white_ratio": 0.663698345546574
+        }
+      },
+      "artifacts": {
+        "preview_png": "items/fig_0001/preview.png",
+        "ai_json": "items/fig_0001/ai.json"
+      }
+    },
+    {
+      "item_id": "fig_0002",
+      "type": "figure",
+      "subtype": "spectrum",
+      "page_index": 5,
+      "bbox": [
+        144.0,
+        227.66632080078125,
+        1012.4730224609375,
+        892.3360595703125
+      ],
+      "caption": "Fig. 2: Effect of Raman spectra on structural prediction accuracy. Three representative",
+      "evidence_snippet": "These findings reinforce the value of multi-modal fusion in overcoming the intrinsic limitations of\nany single spectroscopic modality.\nFig. 2: Effect of Raman spectra on structural prediction accuracy. Three representative\nexamples where incorporating Raman spectra corrects wrong predictions made using only IR or\nUV-Vis inputs. This highlights Raman’s complementary role in resolving molecular substructures\nsensitive to polarizability.\n2.3 State-of-the-art performance of SpectraLLM",
+      "ai_annotations": {
+        "subtype": "spectrum",
+        "subtype_confidence": 1.0,
+        "conditions": [],
+        "material_candidates": [],
+        "keywords": [
+          "Spectra",
+          "Raman",
+          "UV-Vis"
+        ],
+        "method": "ocr_heuristic",
+        "debug": {
+          "ocr_text": "HO IR:0.1389 Uv.0.0256 RAMAN:0.375 coccicoicen CCICZCJCANZCIC34C cOCclcc(nHic10 IR+UVTRAMAN:L.0 Ground:cocclcc[nHJcl cocclccinHlcl JR+UV 0.3871 IR+RAMAN:L.0 RAMAN+UV:L.O cocelcinHjcn] cocclcc[nHJcl cOCclcclnHJcl HN JR:0.4074 UV:0. .8645 RAMAN:0.5217 C#cc(-OIC#CCICNI C#cc(-oic#ccicic Cclc[nHJc(Clclo IR +UV+RAMAN:1 Ground C#cc(=oic#cc C#Cc(-Oic#CC JR+UV:0.4783 IR +RAMAN:L.0 RAMAN+UV.1.0 C#cc(-oic#CC=0 C#cci-oic#cc C#cc(-=oic#cc R;0,075 UV.0.0909 RAMAN 0 1892 @NeciNcic(eoic#N CCI(CIccic-Oic-0 0-Cc cinHlcncI-0 I+UV-RAMAN;0.4688 Ground;0 CNcIcocn] 0-CNCclcocn] IR+UV.0.3333 IR +RAMAN:0.4688 RAMAN+UV:0.375 CNcIncc[nhl OeCncGcocn 0-CNclnccol",
+          "scores": {
+            "microscopy": 0.0,
+            "spectrum": 3.3,
+            "line_plot": 0.5
+          },
+          "white_ratio": 0.710671840892554
+        }
+      },
+      "artifacts": {
+        "preview_png": "items/fig_0002/preview.png",
+        "ai_json": "items/fig_0002/ai.json"
+      }
+    },
+    {
+      "item_id": "fig_0003",
+      "type": "figure",
+      "subtype": "spectrum",
+      "page_index": 6,
+      "bbox": [
+        178.01600646972656,
+        144.00225830078125,
+        1046.49462890625,
+        792.134033203125
+      ],
+      "caption": "Fig. 3: Importance of IR spectra for identifying functional groups. Three representa-",
+      "evidence_snippet": "Fig. 3: Importance of IR spectra for identifying functional groups. Three representa-\ntive examples where IR spectra are essential to correctly identify carbonyl groups and distinguish\nbranched chain configurations. Without IR input, predictions based on Raman and UV-Vis remain\nambiguous or incorrect.\nfunctional groups (0.7209 vs. 0.1718), highlighting its ability to learn interpretable mappings between",
+      "ai_annotations": {
+        "subtype": "spectrum",
+        "subtype_confidence": 1.0,
+        "conditions": [],
+        "material_candidates": [],
+        "keywords": [
+          "vs",
+          "Spectra",
+          "Raman",
+          "UV-Vis"
+        ],
+        "method": "ocr_heuristic",
+        "debug": {
+          "ocr_text": "Uv.0.0345 IRL0.1538 OH CCIC?c3ocicjiciol RAMAN;0,08 cciNcic(eoico CcllnHiciok(Olclo H_N Ground cciciioicinieo OH IR+UV+RAMAN;1,O cciclioicinieo RAMAN-OVO Illl IR +UV.O 642NNHz H_NR+RAMAN:L. CClCIOCIEOICIO cciciicicinieo cciciioicini=0 Uv.0.0385 RAMAN;O.0645 IR;0.2414 CICCzcCzcco] CCICCzcoc1oz CC1RCC3CIC(=01cc32 IR+UV+RAMAN:0.3478 Ground CCI(CICCC1=o ccicc(-oic(cic RAMAN+UV.O.0606 IUV0-2 +RAMAN O-17B6 ccciczccicicioz cciciciccieoicl ccizcciciicziccol U-0.0909 RAMAN;0.222 IR:1.0 ccizcc(coic(cioz c#ccicoicicico C#ccccco IR+UV-RAMAN:LE Ground C#ccccco C#ccccco RAMAN-UV;0.3913 IR+UV:0.8125 IR+ RAMAN:1.0 MHndd C#cccco IE(( o",
+          "scores": {
+            "microscopy": 0.0,
+            "spectrum": 3.3,
+            "line_plot": 1.5
+          },
+          "white_ratio": 0.7156724697047278
+        }
+      },
+      "artifacts": {
+        "preview_png": "items/fig_0003/preview.png",
+        "ai_json": "items/fig_0003/ai.json"
+      }
+    },
+    {
+      "item_id": "table_0001",
+      "type": "table",
+      "subtype": "table",
+      "page_index": 14,
+      "bbox": [
+        334.4678532849657,
+        422.3849486887116,
+        890.1547601773478,
+        625.4177137970353
+      ],
+      "caption": "Table 6: Data distribution across spectral modalities and splits.",
+      "evidence_snippet": "943,732\n5,510,655\nTable 6: Data distribution across spectral modalities and splits.\nSpectrum\nTrain\nVal\nTest",
+      "ai_annotations": {
+        "subtype": "table",
+        "subtype_confidence": 1.0,
+        "conditions": [],
+        "material_candidates": [],
+        "keywords": [],
+        "method": "heuristic",
+        "debug": {}
+      },
+      "artifacts": {
+        "table_csv": "items/table_0001/table.csv",
+        "preview_png": "items/table_0001/preview.png",
+        "ai_json": "items/table_0001/ai.json"
+      }
+    }
+  ]
+}

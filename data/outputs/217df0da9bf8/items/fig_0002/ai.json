@@ -4,8 +4,9 @@
   "conditions": [],
   "material_candidates": [],
   "keywords": [],
-  "method": "heuristic",
+  "method": "ocr_heuristic",
   "debug": {
+    "ocr_text": "MSE: 8.00 mev MSE: -4.22 mev MSE: -3.45 mev MSE: -2.22 mev MSE: -5.45 mev MAE: 17.96 mev MAE: 20.57 mev MAE: 20.74 mev MAE: 17.66 mev MAE: 21.27 mev 4.51 HO HzN- 3.8 2 4.81 MSE: -0.47 mev MSE: 11.57 mev MSE: 0.28 mev MSE: -1.34 mev MSE 2.35 mev MAE: 25.15 mev MAE: 25.91 mev MAE: 23.56 mev MAE: 30.27 mev MAE: 27.40 mev J 4.5 HO 3.81 3.8 4.1 4.5 4.8 3.8 4,1 45 4.8 3.8 4.1 45 4.8 3.8 4.1 43 4.8 3,8 4145 48 Eqc [eV] 3X",
     "scores": {
       "microscopy": 0.0,
       "spectrum": 0.3,

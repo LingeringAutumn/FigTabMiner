@@ -1,0 +1,20 @@
+{
+  "subtype": "microscopy",
+  "subtype_confidence": 0.5,
+  "conditions": [],
+  "material_candidates": [],
+  "keywords": [
+    "vs",
+    "SEM"
+  ],
+  "method": "ocr_heuristic",
+  "debug": {
+    "ocr_text": "(e) Upper",
+    "scores": {
+      "microscopy": 1.5,
+      "spectrum": 0.0,
+      "line_plot": 1.0
+    },
+    "white_ratio": 0.09357429718875503
+  }
+}

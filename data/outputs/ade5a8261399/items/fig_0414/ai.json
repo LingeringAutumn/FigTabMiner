@@ -1,0 +1,33 @@
+{
+  "subtype": "microscopy",
+  "subtype_confidence": 0.6666666666666666,
+  "conditions": [
+    {
+      "name": "temperature",
+      "value": "60K",
+      "source": "regex_heuristic",
+      "confidence": 0.8
+    },
+    {
+      "name": "temperature",
+      "value": "60K",
+      "source": "regex_heuristic",
+      "confidence": 0.8
+    }
+  ],
+  "material_candidates": [],
+  "keywords": [
+    "SEM",
+    "TEM"
+  ],
+  "method": "ocr_heuristic",
+  "debug": {
+    "ocr_text": "Landing Beam Pixel Dwell time(ns) averaging Magnification WD energy(keV) current(pA) sizelnm) count (mm) Gemini 29.4/25.6 1.86 400 (Scan speed 3) 60K 1/3/5 500/300 Regulus 50.0 1.65 194 (CSS40 Capture) 128 60K 8230 Line",
+    "scores": {
+      "microscopy": 2.0,
+      "spectrum": 0.3,
+      "line_plot": 0.5
+    },
+    "white_ratio": 0.8462945306405478
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "page_index": 19,
+  "bbox": [
+    243.14915466308594,
+    562.7174072265625,
+    1019.417236328125,
+    667.8245849609375
+  ],
+  "caption_text": "Figure 9 LVSEM and cross-section STEM images of a polymer-sorted CNT array. (a) LVSEM image obtained ",
+  "caption_bbox": [
+    224.0399932861328,
+    838.5120239257812,
+    1076.3060302734375,
+    863.4240112304688
+  ],
+  "snippet_text": "polymer-sorted CNT arrays.   \n \nFigure 9 LVSEM and cross-section STEM images of a polymer-sorted CNT array. (a) LVSEM image obtained \nat a WD of 1 mm using a Zeiss GEMINI system. (b) ADF-STEM and (c) ABF-STEM images acquired simultaneously. \nThe density of CNTs counted by SEM is approximately the same as the density of bundles counted by STEM.  \n4. Conclusions \nIn summary, the LVSEM imaging mechanism of polymer-sorted CNT arrays on SiO2/Si ",
+  "extraction_trace": [
+    "Extracted from PDF",
+    "Aligned Caption",
+    "Enriched with AI"
+  ]
+}

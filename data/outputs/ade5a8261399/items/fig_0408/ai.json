@@ -1,0 +1,32 @@
+{
+  "subtype": "microscopy",
+  "subtype_confidence": 0.5,
+  "conditions": [
+    {
+      "name": "wavelength",
+      "value": "200 nm",
+      "source": "regex_heuristic",
+      "confidence": 0.8
+    },
+    {
+      "name": "time",
+      "value": "1 h",
+      "source": "regex_heuristic",
+      "confidence": 0.8
+    }
+  ],
+  "material_candidates": [],
+  "keywords": [
+    "SEM"
+  ],
+  "method": "ocr_heuristic",
+  "debug": {
+    "ocr_text": "(b) annealed 200 nm",
+    "scores": {
+      "microscopy": 1.5,
+      "spectrum": 0.0,
+      "line_plot": 0.0
+    },
+    "white_ratio": 0.01246400658165364
+  }
+}

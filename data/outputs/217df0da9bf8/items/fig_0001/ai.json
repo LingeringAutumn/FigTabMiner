@@ -7,8 +7,9 @@
     "UV-Vis",
     "Spectra"
   ],
-  "method": "heuristic",
+  "method": "ocr_heuristic",
   "debug": {
+    "ocr_text": "phenol anisole aniline 1,4-benzenediol 1,4-aminophenol 1,2-methoxyphenol 1,4-anisidine 1,2-dimethoxybenzene 1,3-dimethoxybenzene 1,4-dimethoxybenzene",
     "scores": {
       "microscopy": 0.0,
       "spectrum": 2.3,

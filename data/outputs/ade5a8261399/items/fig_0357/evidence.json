@@ -1,0 +1,22 @@
+{
+  "page_index": 11,
+  "bbox": [
+    837.9231567382812,
+    617.1580810546875,
+    896.9461059570312,
+    676.138916015625
+  ],
+  "caption_text": "Figure 5 Contrast separation by changing the WD. (a) Sketch drawing of the ",
+  "caption_bbox": [
+    256.20001220703125,
+    783.6959838867188,
+    1045.6875,
+    816.9119873046875
+  ],
+  "snippet_text": " \nFigure 5 Contrast separation by changing the WD. (a) Sketch drawing of the \ntrajectories of LA and HA in the Zeiss GEMINI system as a function of WD. (b-d) LVSEM \nimages of polymer-sorted CNT array obtained by the Inlens detector with WDs of (b) 1, (c) \n3, and (d) 5 mm. The insets show the corresponding schematic illustrations of the SEM \nimages. Scale bar: 100 nm ",
+  "extraction_trace": [
+    "Extracted from PDF",
+    "Aligned Caption",
+    "Enriched with AI"
+  ]
+}

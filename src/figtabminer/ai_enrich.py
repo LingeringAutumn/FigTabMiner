@@ -115,7 +115,19 @@ def enrich_items_with_ai(items: list, ingest_data: dict, capabilities: dict) -> 
         try:
             import easyocr
             # Initialize once
-            reader = easyocr.Reader(['en'], gpu=False) # GPU false for compatibility
+            gpu_flag = False
+            if config.OCR_GPU in ("1", "true", "yes", "y", "on"):
+                gpu_flag = True
+            elif config.OCR_GPU in ("0", "false", "no", "n", "off"):
+                gpu_flag = False
+            else:
+                try:
+                    import torch
+                    gpu_flag = torch.cuda.is_available()
+                except Exception:
+                    gpu_flag = False
+            logger.info(f"EasyOCR GPU enabled: {gpu_flag} (FIGTABMINER_OCR_GPU={config.OCR_GPU})")
+            reader = easyocr.Reader(['en'], gpu=gpu_flag)
         except Exception as e:
             logger.error(f"Failed to init EasyOCR: {e}")
             capabilities["ocr"] = False

@@ -1,0 +1,21 @@
+{
+  "subtype": "spectrum",
+  "subtype_confidence": 1.0,
+  "conditions": [],
+  "material_candidates": [],
+  "keywords": [
+    "Spectra",
+    "Raman",
+    "UV-Vis"
+  ],
+  "method": "ocr_heuristic",
+  "debug": {
+    "ocr_text": "HO IR:0.1389 Uv.0.0256 RAMAN:0.375 coccicoicen CCICZCJCANZCIC34C cOCclcc(nHic10 IR+UVTRAMAN:L.0 Ground:cocclcc[nHJcl cocclccinHlcl JR+UV 0.3871 IR+RAMAN:L.0 RAMAN+UV:L.O cocelcinHjcn] cocclcc[nHJcl cOCclcclnHJcl HN JR:0.4074 UV:0. .8645 RAMAN:0.5217 C#cc(-OIC#CCICNI C#cc(-oic#ccicic Cclc[nHJc(Clclo IR +UV+RAMAN:1 Ground C#cc(=oic#cc C#Cc(-Oic#CC JR+UV:0.4783 IR +RAMAN:L.0 RAMAN+UV.1.0 C#cc(-oic#CC=0 C#cci-oic#cc C#cc(-=oic#cc R;0,075 UV.0.0909 RAMAN 0 1892 @NeciNcic(eoic#N CCI(CIccic-Oic-0 0-Cc cinHlcncI-0 I+UV-RAMAN;0.4688 Ground;0 CNcIcocn] 0-CNCclcocn] IR+UV.0.3333 IR +RAMAN:0.4688 RAMAN+UV:0.375 CNcIncc[nhl OeCncGcocn 0-CNclnccol",
+    "scores": {
+      "microscopy": 0.0,
+      "spectrum": 3.3,
+      "line_plot": 0.5
+    },
+    "white_ratio": 0.710671840892554
+  }
+}

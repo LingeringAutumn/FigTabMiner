@@ -1,0 +1,30 @@
+{
+  "subtype": "microscopy",
+  "subtype_confidence": 1.0,
+  "conditions": [
+    {
+      "name": "wavelength",
+      "value": "100 nm",
+      "source": "regex_heuristic",
+      "confidence": 0.8
+    }
+  ],
+  "material_candidates": [],
+  "keywords": [
+    "SEM",
+    "function of",
+    "vs",
+    "Scale bar",
+    "TEM"
+  ],
+  "method": "ocr_heuristic",
+  "debug": {
+    "ocr_text": "5 mm WD",
+    "scores": {
+      "microscopy": 3.5,
+      "spectrum": 0.0,
+      "line_plot": 2.0
+    },
+    "white_ratio": 0.05054971804129985
+  }
+}

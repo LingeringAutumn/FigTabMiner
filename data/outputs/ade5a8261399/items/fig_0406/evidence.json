@@ -1,0 +1,22 @@
+{
+  "page_index": 27,
+  "bbox": [
+    765.66015625,
+    408.418212890625,
+    827.894775390625,
+    470.6533203125
+  ],
+  "caption_text": "Figure S3 The acceptance map of the Inlens detector at a WD of (a) 1 mm, (b) 3 mm, and (c) 5 mm. ",
+  "caption_bbox": [
+    180.0,
+    504.437744140625,
+    988.7546997070312,
+    532.173095703125
+  ],
+  "snippet_text": " \nFigure S3 The acceptance map of the Inlens detector at a WD of (a) 1 mm, (b) 3 mm, and (c) 5 mm. \nThe topographic contrast decreases as the WD increases, and the material and charge contrasts increase \nas the WD increases. \n \n ",
+  "extraction_trace": [
+    "Extracted from PDF",
+    "Aligned Caption",
+    "Enriched with AI"
+  ]
+}

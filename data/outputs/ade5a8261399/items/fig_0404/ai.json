@@ -1,0 +1,28 @@
+{
+  "subtype": "microscopy",
+  "subtype_confidence": 0.8333333333333334,
+  "conditions": [
+    {
+      "name": "wavelength",
+      "value": "100 nm",
+      "source": "regex_heuristic",
+      "confidence": 0.8
+    }
+  ],
+  "material_candidates": [],
+  "keywords": [
+    "vs",
+    "SEM",
+    "TEM"
+  ],
+  "method": "ocr_heuristic",
+  "debug": {
+    "ocr_text": "100 nm",
+    "scores": {
+      "microscopy": 2.5,
+      "spectrum": 0.0,
+      "line_plot": 1.0
+    },
+    "white_ratio": 0.00809384164222874
+  }
+}

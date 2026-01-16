@@ -4,8 +4,9 @@
   "conditions": [],
   "material_candidates": [],
   "keywords": [],
-  "method": "heuristic",
+  "method": "ocr_heuristic",
   "debug": {
+    "ocr_text": "95,53 95.31 88.83 85.14 HzN  14.86 402 6,15 3 HO 81,23 HzN-{ 81.10 74.56 75.20 72.22 25.44 24.80 27.78 15.50 14.94 3.96 OH OH NHz OH NHz NHz OH NHz OCH; NHz CoHn OCHa CoHa OCH; CoHa OCHa CoHn OCHa CoHn",
     "scores": {
       "microscopy": 0.0,
       "spectrum": 0.3,

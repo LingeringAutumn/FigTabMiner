@@ -1,0 +1,22 @@
+{
+  "page_index": 14,
+  "bbox": [
+    676.7000732421875,
+    552.3272705078125,
+    842.2227783203125,
+    717.739990234375
+  ],
+  "caption_text": "Figure 6 Contrast separation by changing the deceleration voltage in the Hitachi ",
+  "caption_bbox": [
+    237.0,
+    780.2160034179688,
+    1064.999755859375,
+    813.4320068359375
+  ],
+  "snippet_text": " \nFigure 6 Contrast separation by changing the deceleration voltage in the Hitachi \nRegulus8230. LVSEM images of polymer-sorted CNT array obtained by the (a, c, e) Upper \ndetector and (b, d, f) Top detector with a deceleration voltage of (a, b) 0, (c, d) -100 V, and \n(e, f) -300V. The schematic drawing illustrates the electron trajectories at different \ndeceleration voltages. The red and dashed red arrows represent the trajectories of low-",
+  "extraction_trace": [
+    "Extracted from PDF",
+    "Aligned Caption",
+    "Enriched with AI"
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "page_index": 28,
+  "bbox": [
+    256.06793212890625,
+    419.39208984375,
+    318.03143310546875,
+    481.354736328125
+  ],
+  "caption_text": "Figure S5 The acceptance map of the Upper and Top detectors at a Vdec of (a) 0, (b) -100 V, and (c) -",
+  "caption_bbox": [
+    180.00225830078125,
+    504.4442138671875,
+    992.2310791015625,
+    532.1795654296875
+  ],
+  "snippet_text": " \nFigure S5 The acceptance map of the Upper and Top detectors at a Vdec of (a) 0, (b) -100 V, and (c) -\n300 V. The topographic contrast in the Upper detector increases as the Vdec increases, and the material \nand charge contrasts transfer from the Upper detector to the Top detector as the Vdec increases. \n \n ",
+  "extraction_trace": [
+    "Extracted from PDF",
+    "Aligned Caption",
+    "Enriched with AI"
+  ]
+}

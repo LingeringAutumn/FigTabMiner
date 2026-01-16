@@ -1,0 +1,17 @@
+{
+  "subtype": "unknown",
+  "subtype_confidence": 0.0,
+  "conditions": [],
+  "material_candidates": [],
+  "keywords": [],
+  "method": "ocr_heuristic",
+  "debug": {
+    "ocr_text": "",
+    "scores": {
+      "microscopy": 0.0,
+      "spectrum": 0.0,
+      "line_plot": 0.0
+    },
+    "white_ratio": 0.3043029767167698
+  }
+}

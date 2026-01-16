@@ -1,0 +1,22 @@
+{
+  "page_index": 5,
+  "bbox": [
+    144.0,
+    227.66632080078125,
+    1012.4730224609375,
+    892.3360595703125
+  ],
+  "caption_text": "Fig. 2: Effect of Raman spectra on structural prediction accuracy. Three representative",
+  "caption_bbox": [
+    144.0,
+    897.9894409179688,
+    1012.5335693359375,
+    917.9894409179688
+  ],
+  "snippet_text": "These findings reinforce the value of multi-modal fusion in overcoming the intrinsic limitations of\nany single spectroscopic modality.\nFig. 2: Effect of Raman spectra on structural prediction accuracy. Three representative\nexamples where incorporating Raman spectra corrects wrong predictions made using only IR or\nUV-Vis inputs. This highlights Raman’s complementary role in resolving molecular substructures\nsensitive to polarizability.\n2.3 State-of-the-art performance of SpectraLLM",
+  "extraction_trace": [
+    "Extracted from PDF",
+    "Aligned Caption",
+    "Enriched with AI"
+  ]
+}

@@ -9,6 +9,10 @@ OUTPUT_DIR = BASE_DIR / "data" / "outputs"
 RENDER_ZOOM = 2.0  # Zoom factor for PDF rendering (2.0 = 144 DPI approx)
 PREVIEW_MAX_SIZE = (800, 800)
 
+# OCR
+# FIGTABMINER_OCR_GPU: "auto" | "true"/"false"
+OCR_GPU = os.getenv("FIGTABMINER_OCR_GPU", "auto").strip().lower()
+
 # Keywords for heuristic detection
 CAPTION_KEYWORDS = [
     "Figure", "Fig.", "Table", "Tab.", "Scheme", "Chart", 

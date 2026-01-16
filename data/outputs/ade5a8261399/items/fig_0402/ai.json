@@ -1,0 +1,34 @@
+{
+  "subtype": "line_plot",
+  "subtype_confidence": 0.8333333333333334,
+  "conditions": [
+    {
+      "name": "wavelength",
+      "value": "6 nm",
+      "source": "regex_heuristic",
+      "confidence": 0.8
+    },
+    {
+      "name": "wavelength",
+      "value": "36 nm",
+      "source": "regex_heuristic",
+      "confidence": 0.8
+    }
+  ],
+  "material_candidates": [],
+  "keywords": [
+    "vs",
+    "SEM",
+    "curve"
+  ],
+  "method": "ocr_heuristic",
+  "debug": {
+    "ocr_text": "(a) b) (c)a (charge contrast) 1.0 Upper (topographic contrast) 0.8 1 6 nm 36 nm ] 0.0 20 40 position (nm) Top",
+    "scores": {
+      "microscopy": 1.0,
+      "spectrum": 0.3,
+      "line_plot": 2.5
+    },
+    "white_ratio": 0.7984943668553035
+  }
+}
