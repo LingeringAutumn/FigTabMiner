@@ -1,0 +1,8 @@
+data/outputs/
+temp_upload/
+
+__pycache__/
+*.py[cod]
+
+.idea/
+.pytest_cache/
