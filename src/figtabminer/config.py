@@ -87,6 +87,7 @@ LAYOUT_MODEL_CONFIG = _cfg_str(
     env="FIGTABMINER_LAYOUT_MODEL",
 )
 LAYOUT_SCORE_THRESH = _cfg_float("layout_score", default=0.5, env="FIGTABMINER_LAYOUT_SCORE")
+LAYOUT_WEIGHTS_PATH = _cfg_str("layout_weights_path", default="", env="FIGTABMINER_LAYOUT_WEIGHTS")
 LAYOUT_LABEL_MAP = {
     0: "Text",
     1: "Title",

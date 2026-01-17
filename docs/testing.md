@@ -40,6 +40,7 @@ Recommended values for GPU + layout:
 - `"ocr_gpu": "true"`
 - `"layout_enable": "true"`
 - `"layout_score": 0.6`
+- `"layout_weights_path": ""`
 
 After edits, just save the file. The app reads it on startup.
 
@@ -136,6 +137,8 @@ Compare:
 - Layout not enabled:
   - Check `Capabilities detected` shows `layout: True`.
   - If not, re-check detectron2 install.
+- Layout model init fails with `Unsupported query remaining`:
+  - Set `"layout_weights_path"` to a local file path of `model_final.pth` or delete the cache folder.
 - OCR still on CPU:
   - Ensure `config/figtabminer.json` has `"ocr_gpu": "true"`.
   - Check log: `EasyOCR GPU enabled: True`.
