@@ -4,6 +4,19 @@ from . import config
 from . import layout_detect
 from . import utils
 
+# v1.3: Import enhanced classifiers
+try:
+    from . import chart_classifier
+    CHART_CLASSIFIER_AVAILABLE = True
+except ImportError:
+    CHART_CLASSIFIER_AVAILABLE = False
+
+try:
+    from . import bar_chart_digitizer
+    BAR_DIGITIZER_AVAILABLE = True
+except ImportError:
+    BAR_DIGITIZER_AVAILABLE = False
+
 logger = utils.setup_logging(__name__)
 
 def detect_capabilities() -> dict:
@@ -177,11 +190,107 @@ def enrich_items_with_ai(items: list, ingest_data: dict, capabilities: dict) -> 
         # 2. Classification
         if item["type"] == "figure":
             full_img_path = config.OUTPUT_DIR / ingest_data["doc_id"] / item["artifacts"]["preview_png"]
-            subtype, conf, kws, debug = classify_figure_subtype(str(full_img_path), caption_text, snippet_text, ocr_text)
-            ai_data["subtype"] = subtype
-            ai_data["subtype_confidence"] = conf
-            ai_data["keywords"] = kws
-            ai_data["debug"].update(debug)
+            
+            # v1.3: Use enhanced classifier if available
+            use_enhanced = (
+                CHART_CLASSIFIER_AVAILABLE and
+                config.CHART_CLASSIFICATION_USE_ENHANCED
+            )
+            
+            if use_enhanced:
+                try:
+                    chart_config = {
+                        'enable_visual_analysis': config.CHART_CLASSIFICATION_VISUAL,
+                        'enable_ocr_assist': config.CHART_CLASSIFICATION_OCR,
+                        'visual_weight': config.CHART_CLASSIFICATION_VISUAL_WEIGHT,
+                        'keyword_weight': config.CHART_CLASSIFICATION_KEYWORD_WEIGHT
+                    }
+                    
+                    # Use enhanced classifier with fallback
+                    subtype, conf, kws, debug = chart_classifier.classify_chart_type(
+                        str(full_img_path),
+                        caption_text,
+                        snippet_text,
+                        ocr_text,
+                        config=chart_config,
+                        fallback_classifier=classify_figure_subtype
+                    )
+                    
+                    ai_data["subtype"] = subtype
+                    ai_data["subtype_confidence"] = conf
+                    ai_data["keywords"] = kws
+                    ai_data["debug"].update(debug)
+                    ai_data["method"] = "enhanced_classifier_v1.3"
+                    
+                except Exception as e:
+                    logger.warning(f"Enhanced classifier failed, using fallback: {e}")
+                    # Fallback to old method
+                    subtype, conf, kws, debug = classify_figure_subtype(
+                        str(full_img_path), caption_text, snippet_text, ocr_text
+                    )
+                    ai_data["subtype"] = subtype
+                    ai_data["subtype_confidence"] = conf
+                    ai_data["keywords"] = kws
+                    ai_data["debug"].update(debug)
+            else:
+                # Use old method
+                subtype, conf, kws, debug = classify_figure_subtype(
+                    str(full_img_path), caption_text, snippet_text, ocr_text
+                )
+                ai_data["subtype"] = subtype
+                ai_data["subtype_confidence"] = conf
+                ai_data["keywords"] = kws
+                ai_data["debug"].update(debug)
+            
+            # v1.3: Auto-digitize bar charts if enabled
+            if (
+                ai_data["subtype"] == "bar_chart" and
+                BAR_DIGITIZER_AVAILABLE and
+                config.BAR_CHART_AUTO_DIGITIZE
+            ):
+                try:
+                    bar_config = {
+                        'min_bar_width': config.BAR_CHART_MIN_WIDTH,
+                        'min_bar_height': config.BAR_CHART_MIN_HEIGHT,
+                        'axis_detection_threshold': config.BAR_CHART_AXIS_THRESHOLD,
+                        'enable_ocr': config.BAR_CHART_OCR_LABELS
+                    }
+                    
+                    df = bar_chart_digitizer.digitize_bar_chart(
+                        str(full_img_path),
+                        orientation='auto',
+                        config=bar_config
+                    )
+                    
+                    if df is not None and len(df) > 0:
+                        # Save bar data
+                        item_dir = config.OUTPUT_DIR / ingest_data["doc_id"] / "items" / item["item_id"]
+                        bar_data_path = item_dir / "bar_data.csv"
+                        df.to_csv(bar_data_path, index=False)
+                        
+                        # Add to artifacts
+                        item["artifacts"]["bar_data_csv"] = f"items/{item['item_id']}/bar_data.csv"
+                        
+                        ai_data["bar_extraction"] = {
+                            "success": True,
+                            "num_bars": len(df),
+                            "method": "auto_digitize_v1.3"
+                        }
+                        
+                        logger.info(f"Bar chart data extracted: {len(df)} bars")
+                    else:
+                        ai_data["bar_extraction"] = {
+                            "success": False,
+                            "reason": "No bars detected"
+                        }
+                
+                except Exception as e:
+                    logger.warning(f"Bar chart digitization failed: {e}")
+                    ai_data["bar_extraction"] = {
+                        "success": False,
+                        "reason": str(e)
+                    }
+        
         elif item["type"] == "table":
             ai_data["subtype"] = "table"
             ai_data["subtype_confidence"] = 1.0

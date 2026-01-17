@@ -184,3 +184,25 @@ BBOX_MERGER_ARROW_ASPECT_MIN = BBOX_MERGER_CONFIG.get("arrow_aspect_ratio_min", 
 BBOX_MERGER_ARROW_ASPECT_MAX = BBOX_MERGER_CONFIG.get("arrow_aspect_ratio_max", 0.2)
 BBOX_MERGER_ARROW_INK_MAX = BBOX_MERGER_CONFIG.get("arrow_ink_ratio_max", 0.05)
 BBOX_MERGER_CONNECTION_THRESHOLD = BBOX_MERGER_CONFIG.get("connection_detection_threshold", 0.3)
+
+# v1.3: Chart Classification Configuration
+CHART_CLASSIFICATION_CONFIG = _cfg_value("chart_classification", default={})
+if not isinstance(CHART_CLASSIFICATION_CONFIG, dict):
+    CHART_CLASSIFICATION_CONFIG = {}
+
+CHART_CLASSIFICATION_USE_ENHANCED = CHART_CLASSIFICATION_CONFIG.get("use_enhanced_classifier", True)
+CHART_CLASSIFICATION_VISUAL = CHART_CLASSIFICATION_CONFIG.get("enable_visual_analysis", True)
+CHART_CLASSIFICATION_OCR = CHART_CLASSIFICATION_CONFIG.get("enable_ocr_assist", False)
+CHART_CLASSIFICATION_VISUAL_WEIGHT = CHART_CLASSIFICATION_CONFIG.get("visual_weight", 0.6)
+CHART_CLASSIFICATION_KEYWORD_WEIGHT = CHART_CLASSIFICATION_CONFIG.get("keyword_weight", 0.4)
+
+# v1.3: Bar Chart Extraction Configuration
+BAR_CHART_CONFIG = _cfg_value("bar_chart_extraction", default={})
+if not isinstance(BAR_CHART_CONFIG, dict):
+    BAR_CHART_CONFIG = {}
+
+BAR_CHART_AUTO_DIGITIZE = BAR_CHART_CONFIG.get("enable_auto_digitize", True)
+BAR_CHART_MIN_WIDTH = BAR_CHART_CONFIG.get("min_bar_width", 5)
+BAR_CHART_MIN_HEIGHT = BAR_CHART_CONFIG.get("min_bar_height", 10)
+BAR_CHART_AXIS_THRESHOLD = BAR_CHART_CONFIG.get("axis_detection_threshold", 0.5)
+BAR_CHART_OCR_LABELS = BAR_CHART_CONFIG.get("enable_ocr_labels", False)

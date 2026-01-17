@@ -31,7 +31,33 @@
     "arrow_aspect_ratio_min": 5.0,
     "arrow_aspect_ratio_max": 0.2,
     "arrow_ink_ratio_max": 0.05,
-    "connection_detection_threshold": 0.3
+    "connection_detection_threshold": 0.3,
+    "max_merge_distance": 150,
+    "min_visual_similarity": 0.3
+  },
+  
+  "table_extraction": {
+    "use_enhanced_extractor": true,
+    "enable_visual_detection": true,
+    "enable_math_equation_filter": true,
+    "min_grid_lines": 100,
+    "try_multiple_strategies": true
+  },
+  
+  "chart_classification": {
+    "use_enhanced_classifier": true,
+    "enable_visual_analysis": true,
+    "enable_ocr_assist": false,
+    "visual_weight": 0.6,
+    "keyword_weight": 0.4
+  },
+  
+  "bar_chart_extraction": {
+    "enable_auto_digitize": true,
+    "min_bar_width": 5,
+    "min_bar_height": 10,
+    "axis_detection_threshold": 0.5,
+    "enable_ocr_labels": false
   }
 }
 

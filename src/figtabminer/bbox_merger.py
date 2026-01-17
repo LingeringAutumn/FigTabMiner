@@ -516,7 +516,7 @@ class SmartBBoxMerger:
     def _should_merge_component(self, boxes: List[Dict], page_image: np.ndarray) -> bool:
         """
         Verify if a connected component should actually be merged.
-        Prevents merging boxes that are too spread out.
+        Prevents merging boxes that are too spread out or semantically different.
         """
         if len(boxes) <= 1:
             return False
@@ -528,9 +528,57 @@ class SmartBBoxMerger:
         # Calculate sum of individual areas
         individual_area = sum(bbox_utils.bbox_area(box['bbox']) for box in boxes)
         
-        # If merged area is much larger than sum of parts, probably shouldn't merge
+        # Rule 1: If merged area is much larger than sum of parts, probably shouldn't merge
         if merged_area > 3 * individual_area:
+            logger.debug(f"Merge rejected: merged area {merged_area} > 3x individual {individual_area}")
             return False
+        
+        # Rule 2: Check if boxes are too far apart
+        max_distance = 0
+        for i, box1 in enumerate(boxes):
+            for box2 in boxes[i+1:]:
+                dist = bbox_utils.bbox_distance(box1['bbox'], box2['bbox'])
+                max_distance = max(max_distance, dist)
+        
+        if max_distance > 150:  # Too far apart
+            logger.debug(f"Merge rejected: max distance {max_distance} > 150")
+            return False
+        
+        # Rule 3: Check visual similarity
+        try:
+            # Extract crops for each box
+            crops = []
+            for box in boxes:
+                x0, y0, x1, y1 = [int(c) for c in box['bbox']]
+                h, w = page_image.shape[:2]
+                x0, y0 = max(0, x0), max(0, y0)
+                x1, y1 = min(w, x1), min(h, y1)
+                
+                if x1 > x0 and y1 > y0:
+                    crop = page_image[y0:y1, x0:x1]
+                    if crop.size > 0:
+                        crops.append(crop)
+            
+            if len(crops) >= 2:
+                # Compare visual features (color histograms)
+                hists = []
+                for crop in crops:
+                    if len(crop.shape) == 3:
+                        hist = cv2.calcHist([crop], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256])
+                        hist = cv2.normalize(hist, hist).flatten()
+                        hists.append(hist)
+                
+                if len(hists) >= 2:
+                    # Compare first two histograms
+                    similarity = cv2.compareHist(hists[0], hists[1], cv2.HISTCMP_CORREL)
+                    
+                    # If very different visually, don't merge
+                    if similarity < 0.3:
+                        logger.debug(f"Merge rejected: low visual similarity {similarity:.3f}")
+                        return False
+        
+        except Exception as e:
+            logger.debug(f"Error in visual similarity check: {e}")
         
         return True
     

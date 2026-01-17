@@ -8,6 +8,15 @@ from . import utils
 from . import layout_detect
 from . import bbox_merger
 
+# Import enhanced extractor
+try:
+    from . import table_extract_v2
+    ENHANCED_AVAILABLE = True
+except ImportError:
+    ENHANCED_AVAILABLE = False
+    logger = utils.setup_logging(__name__)
+    logger.warning("Enhanced table extractor not available, using basic version")
+
 logger = utils.setup_logging(__name__)
 
 
@@ -25,6 +34,25 @@ def _extract_table_from_region(page, bbox_pdf: list) -> Optional[List[List[str]]
 def extract_tables(pdf_path: str, ingest_data: dict, capabilities: dict) -> list:
     """
     Extract tables from PDF.
+    Uses enhanced extractor if available, otherwise falls back to basic version.
+    """
+    # Try enhanced extractor first
+    if ENHANCED_AVAILABLE:
+        logger.info("Using enhanced table extractor")
+        try:
+            return table_extract_v2.extract_tables(pdf_path, ingest_data, capabilities)
+        except Exception as e:
+            logger.error(f"Enhanced extractor failed: {e}, falling back to basic")
+            logger.debug("Traceback:", exc_info=True)
+    
+    # Fallback to basic extractor
+    logger.info("Using basic table extractor")
+    return _extract_tables_basic(pdf_path, ingest_data, capabilities)
+
+
+def _extract_tables_basic(pdf_path: str, ingest_data: dict, capabilities: dict) -> list:
+    """
+    Basic table extraction (original implementation).
     Strategy:
     1. Try Camelot (Lattice -> Stream) if enabled in capabilities.
     2. Fallback to pdfplumber if Camelot fails or is disabled.
