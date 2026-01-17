@@ -449,9 +449,16 @@ def detect_layout(page_img_path: str) -> List[dict]:
     
     try:
         import layoutparser as lp
+        import cv2
         
         logger.debug(f"Running layout detection on: {page_img_path}")
-        image = lp.io.read_image(page_img_path)
+        # Use cv2 to read image instead of lp.io.read_image (which may not exist in all versions)
+        image = cv2.imread(page_img_path)
+        if image is None:
+            logger.warning(f"Failed to read image: {page_img_path}")
+            _CACHE[page_img_path] = results
+            return results
+        
         layout = model.detect(image)
         
         logger.debug(f"Detected {len(layout)} layout blocks")

@@ -168,3 +168,19 @@ MATERIAL_PATTERNS = [
 CAPTION_SEARCH_WINDOW = _cfg_int("caption_search_window", default=300)  # pixels vertical distance to search for caption
 CAPTION_DIRECTION_PENALTY = _cfg_int("caption_direction_penalty", default=120)
 CAPTION_CONTINUATION_GAP = _cfg_int("caption_continuation_gap", default=12)
+
+# BBox Merger Configuration
+BBOX_MERGER_CONFIG = _cfg_value("bbox_merger", default={})
+if not isinstance(BBOX_MERGER_CONFIG, dict):
+    BBOX_MERGER_CONFIG = {}
+
+# Merger defaults
+BBOX_MERGER_ENABLE_SEMANTIC = BBOX_MERGER_CONFIG.get("enable_semantic_merge", True)
+BBOX_MERGER_ENABLE_VISUAL = BBOX_MERGER_CONFIG.get("enable_visual_merge", True)
+BBOX_MERGER_ENABLE_NOISE_FILTER = BBOX_MERGER_CONFIG.get("enable_noise_filter", True)
+BBOX_MERGER_OVERLAP_THRESHOLD = BBOX_MERGER_CONFIG.get("overlap_threshold", 0.7)
+BBOX_MERGER_DISTANCE_THRESHOLD = BBOX_MERGER_CONFIG.get("distance_threshold", 50)
+BBOX_MERGER_ARROW_ASPECT_MIN = BBOX_MERGER_CONFIG.get("arrow_aspect_ratio_min", 5.0)
+BBOX_MERGER_ARROW_ASPECT_MAX = BBOX_MERGER_CONFIG.get("arrow_aspect_ratio_max", 0.2)
+BBOX_MERGER_ARROW_INK_MAX = BBOX_MERGER_CONFIG.get("arrow_ink_ratio_max", 0.05)
+BBOX_MERGER_CONNECTION_THRESHOLD = BBOX_MERGER_CONFIG.get("connection_detection_threshold", 0.3)

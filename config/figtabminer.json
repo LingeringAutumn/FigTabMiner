@@ -1,21 +1,37 @@
 {
   "ocr_gpu": "auto",
   "layout_enable": "auto",
-  "layout_score": 0.6,
+  "layout_score": 0.5,
   "layout_model": "lp://PubLayNet/faster_rcnn_R_50_FPN_3x/config",
   "layout_weights_path": "",
+  
   "figure_min_area": 2000,
   "figure_min_dim": 40,
   "figure_max_page_ratio": 0.85,
-  "figure_merge_iou": 0.2,
+  "figure_merge_iou": 0.3,
   "figure_crop_pad": 4,
   "figure_min_ink_ratio": 0.01,
   "figure_min_text_lines_skip": 6,
+  
   "table_min_area": 2000,
   "table_min_dim": 40,
-  "table_merge_iou": 0.2,
+  "table_merge_iou": 0.3,
   "table_crop_pad": 2,
+  
   "caption_search_window": 300,
   "caption_direction_penalty": 120,
-  "caption_continuation_gap": 12
+  "caption_continuation_gap": 12,
+  
+  "bbox_merger": {
+    "enable_semantic_merge": true,
+    "enable_visual_merge": true,
+    "enable_noise_filter": true,
+    "overlap_threshold": 0.7,
+    "distance_threshold": 50,
+    "arrow_aspect_ratio_min": 5.0,
+    "arrow_aspect_ratio_max": 0.2,
+    "arrow_ink_ratio_max": 0.05,
+    "connection_detection_threshold": 0.3
+  }
 }
+

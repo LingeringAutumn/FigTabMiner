@@ -6,42 +6,9 @@ from typing import List, Optional
 from . import config
 from . import utils
 from . import layout_detect
+from . import bbox_merger
 
 logger = utils.setup_logging(__name__)
-
-def _merge_candidate_boxes(bboxes: list) -> list:
-    merged = []
-    for box in bboxes:
-        matched = False
-        for i, mbox in enumerate(merged):
-            if (
-                utils.bbox_iou(box, mbox) >= config.TABLE_MERGE_IOU
-                or utils.bbox_overlap_ratio(box, mbox) >= 0.7
-            ):
-                merged[i] = utils.merge_bboxes(box, mbox)
-                matched = True
-                break
-        if not matched:
-            merged.append(box)
-    changed = True
-    while changed:
-        changed = False
-        next_pass = []
-        for box in merged:
-            merged_into = False
-            for i, mbox in enumerate(next_pass):
-                if (
-                    utils.bbox_iou(box, mbox) >= config.TABLE_MERGE_IOU
-                    or utils.bbox_overlap_ratio(box, mbox) >= 0.7
-                ):
-                    next_pass[i] = utils.merge_bboxes(box, mbox)
-                    merged_into = True
-                    changed = True
-                    break
-            if not merged_into:
-                next_pass.append(box)
-        merged = next_pass
-    return merged
 
 
 def _extract_table_from_region(page, bbox_pdf: list) -> Optional[List[List[str]]]:
@@ -78,6 +45,18 @@ def extract_tables(pdf_path: str, ingest_data: dict, capabilities: dict) -> list
     table_counter = 0
     
     use_layout = bool(capabilities.get("layout"))
+    
+    # Initialize smart merger for tables
+    merger_config = {
+        'iou_threshold': config.TABLE_MERGE_IOU,
+        'overlap_threshold': 0.7,
+        'distance_threshold': 30,
+        'enable_semantic_merge': False,  # Tables usually don't have subfigures
+        'enable_visual_merge': False,    # Tables are usually standalone
+        'enable_noise_filter': False,    # Don't filter tables
+        'min_area_threshold': config.MIN_TABLE_AREA
+    }
+    merger = bbox_merger.SmartBBoxMerger(merger_config)
 
     # --- Strategy A: Layout-guided extraction ---
     if use_layout:
@@ -86,10 +65,13 @@ def extract_tables(pdf_path: str, ingest_data: dict, capabilities: dict) -> list
         for page_idx in range(ingest_data["num_pages"]):
             page_img_path = ingest_data["page_images"][page_idx]
             layout_blocks = layout_detect.detect_layout(page_img_path)
-            table_boxes = [b["bbox"] for b in layout_blocks if b["type"] == "table"]
+            table_boxes = [{'bbox': b["bbox"], 'type': 'table', 'score': b.get('score', 0.5)} 
+                          for b in layout_blocks if b["type"] == "table"]
             if not table_boxes:
                 continue
-            table_boxes = _merge_candidate_boxes(table_boxes)
+            
+            # Use smart merger
+            table_boxes = merger._merge_by_overlap(table_boxes)
             layout_boxes_by_page[page_idx] = table_boxes
 
         if layout_boxes_by_page:
@@ -99,7 +81,8 @@ def extract_tables(pdf_path: str, ingest_data: dict, capabilities: dict) -> list
                     page_w, page_h = ingest_data["page_sizes"][page_idx]
                     zoom = ingest_data["zoom"]
 
-                    for bbox_rendered in table_boxes:
+                    for box_dict in table_boxes:
+                        bbox_rendered = box_dict['bbox']
                         x0, y0, x1, y1 = [int(c) for c in bbox_rendered]
                         if (x1 - x0) < config.MIN_TABLE_DIM or (y1 - y0) < config.MIN_TABLE_DIM:
                             continue
@@ -147,6 +130,8 @@ def extract_tables(pdf_path: str, ingest_data: dict, capabilities: dict) -> list
                             "subtype": "table",
                             "page_index": page_idx,
                             "bbox": [x0, y0, x1, y1],
+                            "detection_score": box_dict.get('score', 0.5),
+                            "detection_source": "layout",
                             "artifacts": {
                                 "table_csv": f"items/{item_id}/table.csv",
                                 "preview_png": f"items/{item_id}/preview.png"
