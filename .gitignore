@@ -6,4 +6,4 @@ __pycache__/
 
 .idea/
 .pytest_cache/
-./test_docs
+.test_docs
