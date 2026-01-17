@@ -23,6 +23,7 @@ def main():
     st.sidebar.write("Capabilities detected:")
     st.sidebar.checkbox("OCR (EasyOCR)", value=caps["ocr"], disabled=True)
     st.sidebar.checkbox("Table (Camelot)", value=caps["camelot"], disabled=True)
+    st.sidebar.checkbox("Layout (Detectron2)", value=caps.get("layout", False), disabled=True)
 
     # File Upload
     uploaded_file = st.sidebar.file_uploader("Upload PDF", type=["pdf"])
@@ -50,7 +51,7 @@ def main():
                     st.session_state["ingest_data"] = ingest_data
                     st.session_state["doc_id"] = ingest_data["doc_id"]
 
-                    figs = figure_extract.extract_figures(ingest_data)
+                    figs = figure_extract.extract_figures(ingest_data, caps)
                     tabs = table_extract.extract_tables(str(pdf_path), ingest_data, caps)
                     items = figs + tabs
 

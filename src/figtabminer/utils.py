@@ -72,3 +72,52 @@ def bbox_distance(bbox1: list, bbox2: list) -> float:
 def rect_to_bbox(rect) -> list:
     """Convert PyMuPDF rect to [x0, y0, x1, y1] list."""
     return [rect.x0, rect.y0, rect.x1, rect.y1]
+
+def bbox_area(bbox: list) -> float:
+    x0, y0, x1, y1 = bbox
+    return max(0.0, x1 - x0) * max(0.0, y1 - y0)
+
+def bbox_iou(b1: list, b2: list) -> float:
+    x0 = max(b1[0], b2[0])
+    y0 = max(b1[1], b2[1])
+    x1 = min(b1[2], b2[2])
+    y1 = min(b1[3], b2[3])
+    inter = max(0.0, x1 - x0) * max(0.0, y1 - y0)
+    if inter <= 0:
+        return 0.0
+    area1 = bbox_area(b1)
+    area2 = bbox_area(b2)
+    union = area1 + area2 - inter
+    return inter / union if union > 0 else 0.0
+
+def bbox_overlap_ratio(b1: list, b2: list) -> float:
+    x0 = max(b1[0], b2[0])
+    y0 = max(b1[1], b2[1])
+    x1 = min(b1[2], b2[2])
+    y1 = min(b1[3], b2[3])
+    inter = max(0.0, x1 - x0) * max(0.0, y1 - y0)
+    if inter <= 0:
+        return 0.0
+    return inter / min(bbox_area(b1), bbox_area(b2))
+
+def merge_bboxes(b1: list, b2: list) -> list:
+    return [
+        min(b1[0], b2[0]),
+        min(b1[1], b2[1]),
+        max(b1[2], b2[2]),
+        max(b1[3], b2[3]),
+    ]
+
+def expand_bbox(bbox: list, pad: int, max_w: Optional[int] = None, max_h: Optional[int] = None) -> list:
+    x0, y0, x1, y1 = bbox
+    x0 = x0 - pad
+    y0 = y0 - pad
+    x1 = x1 + pad
+    y1 = y1 + pad
+    if max_w is not None:
+        x0 = max(0, x0)
+        x1 = min(max_w, x1)
+    if max_h is not None:
+        y0 = max(0, y0)
+        y1 = min(max_h, y1)
+    return [x0, y0, x1, y1]

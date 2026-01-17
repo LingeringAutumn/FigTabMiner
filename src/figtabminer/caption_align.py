@@ -15,19 +15,15 @@ def align_captions(items: list, ingest_data: dict) -> list:
     # Candidate line: starts with "Figure X" or "Table Y"
     
     caption_candidates_by_page = {}
+    caption_re = re.compile(r"^\s*(fig\.?|figure|table|tab\.?|scheme|chart|图|表)\b", re.IGNORECASE)
+    figure_re = re.compile(r"^\s*(fig\.?|figure|scheme|chart|图)\b", re.IGNORECASE)
+    table_re = re.compile(r"^\s*(table|tab\.?|表)\b", re.IGNORECASE)
     
     for page_idx, lines in enumerate(ingest_data["page_text_lines"]):
         candidates = []
         for line_obj in lines:
             text = line_obj["text"].strip()
-            # Check if starts with keyword
-            is_candidate = False
-            for kw in config.CAPTION_KEYWORDS:
-                if text.startswith(kw):
-                    is_candidate = True
-                    break
-            
-            if is_candidate:
+            if caption_re.match(text):
                 candidates.append(line_obj)
         
         caption_candidates_by_page[page_idx] = candidates
@@ -37,10 +33,16 @@ def align_captions(items: list, ingest_data: dict) -> list:
         page_idx = item["page_index"]
         item_bbox = item["bbox"] # Rendered coords
         
-        if not item_bbox: 
+        if not item_bbox:
             # If table has no bbox, we can't align spatially easily.
             # Maybe just take the first table caption on the page?
             # For now, skip spatial alignment if no bbox.
+            candidates = caption_candidates_by_page.get(page_idx, [])
+            if candidates:
+                best_cand = candidates[0]
+                item["caption"] = best_cand["text"]
+                item["caption_bbox"] = best_cand["bbox"]
+                item["evidence_snippet"] = best_cand["text"]
             continue
             
         candidates = caption_candidates_by_page.get(page_idx, [])
@@ -75,12 +77,21 @@ def align_captions(items: list, ingest_data: dict) -> list:
                 # Overlap?
                 dist = 0
                 direction = "overlap"
-            
-            # Heuristic: Figures usually caption below, Tables usually caption above.
-            # But let's just trust proximity for baseline.
-            
-            if dist < config.CAPTION_SEARCH_WINDOW and dist < min_dist:
-                min_dist = dist
+            penalty = 0
+            if item["type"] == "figure" and direction == "above":
+                penalty = config.CAPTION_DIRECTION_PENALTY
+            if item["type"] == "table" and direction == "below":
+                penalty = config.CAPTION_DIRECTION_PENALTY
+
+            bonus = 0
+            if item["type"] == "figure" and figure_re.match(cand["text"]):
+                bonus = 30
+            if item["type"] == "table" and table_re.match(cand["text"]):
+                bonus = 30
+
+            score = dist + penalty - bonus
+            if dist < config.CAPTION_SEARCH_WINDOW and score < min_dist:
+                min_dist = score
                 best_cand = cand
         
         if best_cand:
@@ -102,8 +113,26 @@ def align_captions(items: list, ingest_data: dict) -> list:
                         break
                 
                 if c_idx != -1:
+                    caption_lines = [all_lines[c_idx]]
+                    caption_bbox = list(all_lines[c_idx]["bbox"])
+                    prev_bbox = all_lines[c_idx]["bbox"]
+                    for j in range(c_idx + 1, len(all_lines)):
+                        line = all_lines[j]
+                        if caption_re.match(line["text"]) and j != c_idx:
+                            break
+                        gap = line["bbox"][1] - prev_bbox[3]
+                        if gap <= config.CAPTION_CONTINUATION_GAP:
+                            caption_lines.append(line)
+                            caption_bbox = utils.merge_bboxes(caption_bbox, line["bbox"])
+                            prev_bbox = line["bbox"]
+                        else:
+                            break
+
+                    item["caption"] = " ".join([l["text"] for l in caption_lines]).strip()
+                    item["caption_bbox"] = caption_bbox
+
                     start = max(0, c_idx - 2)
-                    end = min(len(all_lines), c_idx + 5) # Include more lines after caption
+                    end = min(len(all_lines), c_idx + 5)
                     snippet_lines = all_lines[start:end]
                     item["evidence_snippet"] = "\n".join([l["text"] for l in snippet_lines])
                 else:

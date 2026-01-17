@@ -20,7 +20,7 @@ def run_pipeline(pdf_path):
         caps = ai_enrich.detect_capabilities()
         
         # 3. Extract
-        figs = figure_extract.extract_figures(ingest_data)
+        figs = figure_extract.extract_figures(ingest_data, caps)
         tabs = table_extract.extract_tables(pdf_path, ingest_data, caps)
         items = figs + tabs
         

@@ -1,6 +1,7 @@
 import re
 import os
 from . import config
+from . import layout_detect
 from . import utils
 
 logger = utils.setup_logging(__name__)
@@ -9,7 +10,8 @@ def detect_capabilities() -> dict:
     """Detect available optional dependencies."""
     caps = {
         "ocr": utils.safe_import("easyocr"),
-        "camelot": utils.safe_import("camelot")
+        "camelot": utils.safe_import("camelot"),
+        "layout": layout_detect.layout_available(),
     }
     logger.info(f"Capabilities detected: {caps}")
     return caps
@@ -37,6 +39,7 @@ def classify_figure_subtype(preview_path: str, caption: str, snippet: str, ocr_t
     import numpy as np
     
     img = cv2.imread(preview_path)
+    white_ratio = 0.0
     if img is not None:
         # Check if it looks like a microscopy image (high texture, fills frame)
         # vs Line plot (lots of whitespace/background)
