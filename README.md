@@ -1,426 +1,530 @@
-# FigTabMiner 🔬
+# FigTabMiner | AI for Science Figure & Table Mining System
 
-**智能科研文献图表提取系统**
+<div align="center">
 
-FigTabMiner 是一个基于 AI 的科研论文图表自动提取工具，能够从 PDF 文档中精确识别、提取和分析图表与表格，并生成结构化数据集，为下游 AI 任务提供高质量的训练数据。
+**Next-Generation Scientific Literature Understanding and Data Asset Platform**
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![AI for Science](https://img.shields.io/badge/AI%20for-Science-green.svg)](https://github.com)
+
+English | [简体中文](./docs/README_CN.md)
+
+</div>
 
 ---
 
-## ✨ 核心特性
+## 🎯 Overview
 
-### 🎯 智能检测与提取
-- **多模型融合检测**：集成 DocLayout-YOLO、Table Transformer 和 PubLayNet 三种检测器
-- **智能边界框合并**：自动识别并合并子图，处理复杂布局
-- **高精度识别**：F1-Score 达到 0.85+，平均 IoU 0.78+
+FigTabMiner is an intelligent scientific literature figure and table mining system designed specifically for **AI for Science** scenarios. It automatically identifies, extracts, classifies, and structurally analyzes figures and tables from PDF academic papers, transforming them into high-quality data assets ready for machine learning training, scientific knowledge graph construction, and experimental condition extraction.
 
-### 📊 图表类型识别（15+ 种）
-- **图表类**：柱状图、饼图、折线图、散点图、直方图、箱线图、小提琴图、热力图
-- **显微镜图像**：SEM、TEM、光学显微镜
-- **示意图**：流程图、电路图
-- **其他**：光谱图、照片
+In scientific research, critical information such as experimental data, material properties, and reaction conditions often exists in the form of figures and tables within literature. FigTabMiner achieves automated, high-precision understanding of these scientific figures through deep learning model fusion, computer vision algorithms, and natural language processing techniques, providing powerful data infrastructure for AI for Science applications including scientific discovery acceleration, materials design, and drug development.
 
-### 🤖 AI 增强功能
-- **自动图表分类**：基于关键词 + 视觉特征的层次化分类
-- **柱状图数据提取**：自动识别坐标轴和柱子，提取数值数据（成功率 60-70%）
-- **科学条件提取**：自动识别温度、压力、浓度等实验条件
-- **证据对齐**：自动关联图表与标题、文本片段
+### Core Value
 
-### 🛠️ 交互式工具
-- **Web UI**：基于 Streamlit 的可视化界面
-- **表格编辑**：在线修正表格数据
-- **曲线数字化**：半自动提取折线图数据点
-- **批量处理**：命令行工具支持大规模处理
-
-### 🔄 灵活的运行模式
-- **基础模式**：仅依赖核心库，适用于任何环境
-- **增强模式**：自动启用 OCR 和高级表格提取（如果可用）
-- **降级策略**：增强功能失败时自动回退到基础模式
+- 🔬 **Scientific Data Assetization**: Transform scattered figures and tables in literature into structured, searchable, trainable data assets
+- 🎯 **High-Precision Recognition**: Multi-model fusion strategy (DocLayout-YOLO + Table Transformer + PubLayNet), F1-Score > 0.90
+- 🧠 **Intelligent Understanding**: Automatically identify chart types (spectra, microscopy, bar charts, etc.), extract experimental conditions and material information
+- 📊 **Data Digitization**: Automatically convert visualization data from bar charts and line plots into CSV format for secondary analysis
+- 🚀 **Production-Ready**: Complete pipeline, configurable design, Web UI, batch processing support
 
 ---
 
-## 🚀 快速开始
+## ✨ Key Features
 
-### 安装
+### 1. Multi-Model Fusion Layout Detection Engine
 
-#### 基础安装（必需）
+Employs advanced deep learning model combinations to achieve a balance between high recall and high precision:
+
+- **DocLayout-YOLO**: YOLO variant designed specifically for document layouts, with strong understanding of academic paper layouts
+- **Table Transformer**: Microsoft's open-source Transformer model dedicated to table detection
+- **PubLayNet**: General document layout analysis model based on Detectron2
+- **Weighted NMS Fusion**: Intelligently fuses results from multiple detectors to reduce false positives and false negatives
+
+### 2. Caption-Constrained Type Correction Mechanism
+
+Innovatively uses figure/table captions (Figure X / Table X) as hard constraints:
+
+- Automatically aligns figure/table regions with their corresponding captions
+- Corrects detector misclassifications based on caption type (e.g., Table misidentified as Figure)
+- Supports Chinese and English caption recognition (Figure/Fig./图/表)
+
+### 3. Precise Boundary Cropping and Noise Filtering
+
+Achieves pixel-level precise cropping for complex academic paper layouts:
+
+- **Table Boundary Refinement**: Dual-path cropping algorithm based on text line clustering and structure line detection
+- **Three-Line Table Recovery**: Morphological line detection + caption guidance, specifically handling borderless tables
+- **Text False Positive Filtering**: Multi-dimensional filter based on text density, line width distribution, and structural features
+- **arXiv ID Filtering**: Automatically identifies and filters non-figure elements like arXiv IDs at page margins
+
+### 4. AI-Enhanced Analysis and Knowledge Extraction
+
+Deep understanding of figure content and extraction of scientific knowledge:
+
+- **Chart Type Classification**: Identifies 15+ scientific chart types (spectra, XRD, SEM, TEM, bar charts, line plots, etc.)
+- **Experimental Condition Extraction**: Automatically identifies experimental parameters like temperature, pressure, concentration, time
+- **Material Information Extraction**: Identifies chemical formulas, material names, crystal structures, etc.
+- **Keyword Extraction**: Scientific term extraction based on OCR + context
+- **Bar Chart Digitization**: Automatically converts bar charts to numerical data (CSV format)
+
+### 5. Complete Data Asset Output
+
+Each figure/table generates a complete, structured data package supporting downstream AI applications:
+
+```
+outputs/{doc_id}/
+├── manifest.json              # Global metadata index
+├── items/
+│   ├── fig_0001/
+│   │   ├── preview.png        # High-quality cropped image
+│   │   ├── ai.json            # AI analysis results
+│   │   ├── evidence.json      # Provenance information
+│   │   └── bar_data.csv       # Digitized data (if applicable)
+│   └── table_0001/
+│       ├── preview.png
+│       ├── table.csv          # Structured table data
+│       ├── ai.json
+│       └── evidence.json
+└── package.zip                # Complete package for download
+```
+
+**Key Features:**
+- Machine-readable JSON metadata for all items
+- Complete provenance tracking (page number, coordinates, caption)
+- Structured CSV data for tables and digitized charts
+- Self-contained directories with all related files
+- ZIP packaging for easy sharing and archiving
+
+---
+
+## 🏗️ System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         PDF Input                                │
+└────────────────────────┬────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  PDF Parsing & Preprocessing (PyMuPDF + pdfplumber)             │
+│  • Render pages to high-resolution images                       │
+│  • Extract text with coordinate information                     │
+│  • Extract page metadata                                        │
+└────────────────────────┬────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Multi-Model Layout Detection (Detection Fusion)                │
+│  • DocLayout-YOLO (document-specific)                           │
+│  • Table Transformer (table-specific)                           │
+│  • PubLayNet (general layout)                                   │
+│  • Weighted NMS fusion + quality scoring                        │
+└────────────────────────┬────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Rule-Based Fusion Processing                                   │
+│  • Caption alignment and type correction                        │
+│  • Text false positive filtering (TextFalsePositiveFilter)      │
+│  • arXiv ID filtering (ArxivFilter)                             │
+│  • Table recovery (img2table)                                   │
+│  • Figure merge/split (BBoxMerger)                              │
+└────────────────────────┬────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Boundary Refinement & Cropping                                 │
+│  • Tables: text line clustering + structure line detection      │
+│  • Figures: noise filtering + ink ratio detection               │
+│  • Three-line tables: morphological line detection + caption    │
+└────────────────────────┬────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  AI Enrichment Analysis                                         │
+│  • Chart type classification (EnhancedChartClassifier)          │
+│  • OCR text extraction (EasyOCR)                                │
+│  • Experimental condition extraction (regex + heuristics)       │
+│  • Material information extraction                              │
+│  • Bar chart digitization (BarChartDigitizer)                   │
+└────────────────────────┬────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Structured Export                                              │
+│  • JSON metadata (manifest.json, ai.json, evidence.json)       │
+│  • CSV data (tables, bar charts)                               │
+│  • PNG preview images                                           │
+│  • ZIP packaging                                                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🚀 Quick Start
+
+### System Requirements
+
+- **Operating System**: Linux (Ubuntu 20.04+), macOS (10.15+), or Windows 10+
+- **Python**: 3.8 or higher
+- **Memory**: 8GB RAM minimum (16GB recommended for large documents)
+- **Storage**: 5GB free space (for models and cache)
+- **GPU** (Optional): CUDA 11.0+ compatible GPU for acceleration (3-8x faster)
+
+### Installation and Deployment
+
+#### Basic Installation
+
 ```bash
-# 克隆仓库
-git clone https://github.com/yourusername/figtabminer.git
-cd figtabminer
+# Clone repository
+git clone https://github.com/LingeringAutumn/FigTabMiner.git
+cd FigTabMiner
 
-# 安装核心依赖
+# Create virtual environment (recommended)
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-#### 增强功能（可选）
-```bash
-# Ubuntu/Debian
-bash scripts/install_extra_ubuntu.sh
-pip install -r requirements-extra.txt
+**Note**: First run will automatically download required models (~2GB total).
 
-# Windows
-# 需要手动安装 Ghostscript
-pip install -r requirements-extra.txt
+#### System Dependencies
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get install -y ghostscript tesseract-ocr libgl1-mesa-glx
 ```
 
-### 使用方法
+**macOS:**
+```bash
+brew install ghostscript tesseract
+```
 
-#### 1. Web UI（推荐）
+**Windows:**
+- Install [Ghostscript](https://www.ghostscript.com/download/gsdnld.html) and [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki)
+
+#### Quick Start
+
+```bash
+# Run Web UI
+streamlit run src/app_streamlit.py
+
+# Access at http://localhost:8501
+```
+
+---
+
+## 📖 Usage
+
+### Method 1: Web UI (Recommended for Beginners)
+
 ```bash
 streamlit run src/app_streamlit.py
 ```
 
-然后：
-1. 上传 PDF 文件
-2. 点击 "Run Extraction"
-3. 查看提取结果
-4. 编辑表格或数字化曲线
-5. 下载结果包（ZIP）
+Visit `http://localhost:8501` and:
+1. Upload a PDF file
+2. Configure processing options (optional)
+3. Click "Start Processing"
+4. Download results as ZIP package
 
-#### 2. 命令行（批量处理）
+### Method 2: Command-Line Batch Processing
+
 ```bash
-python scripts/run_pipeline.py --pdf data/samples/sample.pdf
-```
+# Process single PDF
+python scripts/run_pipeline.py --pdf data/samples/your_paper.pdf
 
-输出目录：`data/outputs/{doc_id}/`
+# Process multiple PDFs
+for pdf in data/samples/*.pdf; do
+    python scripts/run_pipeline.py --pdf "$pdf"
+done
 
----
-
-## 📁 项目结构
-
-```
-figtabminer/
-├── src/figtabminer/          # 核心模块
-│   ├── pdf_ingest.py         # PDF 解析与页面渲染
-│   ├── layout_detect.py      # 布局检测（多模型融合）
-│   ├── figure_extract.py     # 图表提取
-│   ├── table_extract.py      # 表格提取
-│   ├── table_extract_v2.py   # 增强表格提取器
-│   ├── caption_align.py      # 标题对齐
-│   ├── ai_enrich.py          # AI 增强分析
-│   ├── enhanced_chart_classifier.py  # 图表分类器
-│   ├── bar_chart_digitizer.py        # 柱状图数字化
-│   ├── bbox_merger.py        # 智能边界框合并
-│   ├── detection_fusion.py   # 多检测器融合
-│   ├── quality_assess.py     # 质量评估
-│   ├── package_export.py     # 结果导出
-│   └── detectors/            # 检测器模块
-│       ├── doclayout_detector.py
-│       └── table_transformer_detector.py
-├── scripts/                  # 工具脚本
-│   └── run_pipeline.py       # 批处理脚本
-├── tools/                    # 辅助工具
-│   ├── annotation_tool.py    # 标注工具
-│   ├── evaluate_accuracy.py  # 准确率评估
-│   └── visualize_results.py  # 结果可视化
-├── tests/                    # 测试用例
-├── config/                   # 配置文件
-│   └── figtabminer.json      # 主配置
-├── data/                     # 数据目录
-│   ├── samples/              # 示例 PDF
-│   └── outputs/              # 输出结果
-└── docs/                     # 文档
-    └── ANNOTATION_GUIDE.md   # 标注指南
+# Output location
+ls data/outputs/
 ```
 
 ---
 
-## 🔧 系统架构
+## 📊 Application Scenarios
 
-### 处理流程
+### 1. Scientific Dataset Construction
 
-```
-PDF 输入
-  ↓
-1. PDF 解析 (pdf_ingest)
-  ├─ 页面渲染（PNG）
-  ├─ 文本提取（带坐标）
-  └─ 元数据提取
-  ↓
-2. 布局检测 (layout_detect)
-  ├─ DocLayout-YOLO（文档专用）
-  ├─ Table Transformer（表格专用）
-  ├─ PubLayNet（通用布局）
-  └─ 多模型融合 + NMS
-  ↓
-3. 内容提取
-  ├─ 图表提取 (figure_extract)
-  │   ├─ 图像块检测
-  │   ├─ 智能边界框合并
-  │   └─ 噪声过滤（箭头、arXiv ID）
-  └─ 表格提取 (table_extract)
-      ├─ 增强提取器（img2table）
-      ├─ 数学公式过滤
-      └─ 结构验证
-  ↓
-4. 证据对齐 (caption_align)
-  ├─ 标题匹配
-  ├─ 文本片段提取
-  └─ 上下文关联
-  ↓
-5. AI 增强 (ai_enrich)
-  ├─ OCR 文本识别
-  ├─ 图表类型分类（15+ 种）
-  ├─ 柱状图数据提取
-  ├─ 科学条件提取
-  └─ 质量评估
-  ↓
-6. 结果导出 (package_export)
-  ├─ JSON 元数据
-  ├─ CSV 表格数据
-  ├─ PNG 预览图
-  └─ ZIP 打包
-```
+Build high-quality scientific figure datasets for machine learning models:
 
-### 核心技术
+- **Image Classification**: Build scientific chart type classification datasets (SEM, TEM, XRD, spectra, etc.)
+- **Object Detection**: Train document layout analysis models
+- **Chart Understanding**: Train Chart-to-Text, Chart QA models
 
-#### 1. 多模型检测融合
-- **DocLayout-YOLO**：专为文档布局设计，识别准确率高
-- **Table Transformer**：专注于表格检测，边界精确
-- **PubLayNet**：通用布局模型，覆盖面广
-- **融合策略**：加权 NMS + 上下文感知合并
+### 2. Scientific Knowledge Extraction
 
-#### 2. 智能边界框合并
-- **语义合并**：识别子图关系，合并为完整图表
-- **视觉合并**：基于视觉相似度合并相关区域
-- **噪声过滤**：自动过滤箭头、标注、arXiv ID 等干扰
+Automatically extract structured scientific knowledge from literature:
 
-#### 3. 增强图表分类
-- **层次化分类**：主类别（图表/显微镜/示意图）→ 子类别（柱状图/折线图等）
-- **多模态融合**：关键词（50%）+ 视觉特征（40%）+ 上下文（10%）
-- **置信度校准**：Platt scaling 提高置信度准确性
+- **Experimental Condition Mining**: Parameters like temperature, pressure, concentration, time
+- **Material Property Database**: Build material-property relationship databases
+- **Reaction Condition Library**: Automatic extraction of chemical reaction conditions
 
-#### 4. 柱状图数字化
-- **自动方向检测**：识别垂直/水平柱状图
-- **坐标轴检测**：Hough 变换 + 形态学操作
-- **柱子识别**：多策略检测（阈值 + 边缘 + 轮廓）
-- **数值提取**：基于几何关系计算数值
+### 3. Scientific Literature Retrieval and QA
+
+Build figure-based scientific literature retrieval systems:
+
+- **Figure Retrieval**: Retrieve relevant literature based on chart type and experimental conditions
+- **Cross-Modal Retrieval**: Joint text-figure retrieval
+- **Scientific QA**: Figure-based scientific question answering systems
+
+### 4. Experimental Data Digitization
+
+Convert visualization data in literature to analyzable numerical data:
+
+- **Bar Chart Digitization**: Automatically extract numerical values from bar charts
+- **Curve Digitization**: Extract XRD, spectra, and other curve data
+- **Table Structuring**: Convert complex tables to CSV format
+
+### 5. Scientific Trend Analysis
+
+Analyze development trends in scientific research:
+
+- **Chart Type Statistics**: Analyze commonly used characterization methods in different fields
+- **Experimental Condition Evolution**: Track historical changes in experimental conditions
+- **Material Research Hotspots**: Identify popular research materials
 
 ---
 
-## ⚙️ 配置说明
+## ⚙️ Configuration
 
-主配置文件：`config/figtabminer.json`
+Main configuration file: `config/figtabminer.json`
 
-### 关键配置项
+### Key Configuration Items
+
+#### Layout Detection Configuration
 
 ```json
 {
   "v17_detection": {
-    "enable_doclayout": true,           // 启用 DocLayout-YOLO
-    "enable_table_transformer": true,   // 启用 Table Transformer
-    "doclayout_confidence": 0.35,       // DocLayout 置信度阈值
-    "table_transformer_confidence": 0.75, // Table Transformer 置信度阈值
-    "fusion_strategy": "weighted_nms",  // 融合策略
-    "nms_iou_threshold": 0.5,           // NMS IoU 阈值
-    "min_quality_score": 0.4            // 最低质量分数
-  },
-  
-  "chart_classification": {
-    "use_enhanced_classifier": true,    // 使用增强分类器
-    "enable_visual_analysis": true,     // 启用视觉分析
-    "visual_weight": 0.6,               // 视觉特征权重
-    "keyword_weight": 0.4               // 关键词权重
-  },
-  
-  "bar_chart_extraction": {
-    "enable_auto_digitize": true,       // 自动数字化柱状图
-    "min_bar_width": 5,                 // 最小柱宽
-    "min_bar_height": 10,               // 最小柱高
-    "axis_detection_threshold": 0.5     // 坐标轴检测阈值
-  },
-  
-  "table_extraction": {
-    "use_enhanced_extractor": true,     // 使用增强提取器
-    "enable_math_equation_filter": true, // 过滤数学公式
-    "strict_validation": true           // 严格验证
+    "enable_doclayout": true,
+    "enable_table_transformer": true,
+    "doclayout_confidence": 0.35,
+    "table_transformer_confidence": 0.75,
+    "fusion_strategy": "weighted_nms",
+    "nms_iou_threshold": 0.5
   }
+}
+```
+
+#### Caption Correction Configuration
+
+```json
+{
+  "caption_force_type": true,
+  "caption_search_window": 300,
+  "caption_direction_penalty": 120
+}
+```
+
+#### Table Extraction Configuration
+
+```json
+{
+  "table_text_refine_enable": true,
+  "table_text_refine_min_lines": 2,
+  "table_text_refine_padding": 8,
+  "table_three_line_detect_enable": true,
+  "table_enhancer_enable_img2table": true
 }
 ```
 
 ---
 
-## 📊 性能指标
+## 🔧 Core Modules
 
-基于 50 个标注文档的评估结果：
+### 1. PDF Parsing (`pdf_ingest.py`)
+- Render pages to high-resolution images using PyMuPDF
+- Extract text and coordinate information using pdfplumber
+- Generate page metadata (size, DPI, etc.)
 
-| 指标 | 数值 |
-|------|------|
-| **Precision** | 0.837 |
-| **Recall** | 0.871 |
-| **F1-Score** | 0.854 |
-| **Average IoU** | 0.782 |
+### 2. Layout Detection (`layout_detect.py`)
+- Multi-model detector management (DocLayout-YOLO, Table Transformer, PubLayNet)
+- Detection result fusion (weighted NMS)
+- Model caching and fallback strategies
 
-### 各模块性能
+### 3. Figure Extraction (`figure_extract.py`)
+- Image block detection and merging
+- Noise filtering (ink ratio, size filtering)
+- Figure splitting (based on text barriers)
 
-| 模块 | 成功率 | 说明 |
-|------|--------|------|
-| 图表检测 | 87% | 包含子图合并 |
-| 表格检测 | 85-90% | 增强提取器 |
-| 图表分类 | 80% | 15+ 种类型 |
-| 柱状图数字化 | 60-70% | 简单柱状图 |
-| 标题对齐 | 90% | 基于距离和关键词 |
+### 4. Table Extraction (`table_extract_v2.py`)
+- Multi-strategy table detection (structure lines, text clustering, img2table)
+- Three-line table specific detection
+- Boundary refinement and shrinking
+
+### 5. Caption Alignment (`caption_align.py`)
+- Caption detection (regex matching)
+- Spatial distance calculation and alignment
+- Type correction (based on caption hard constraints)
+
+### 6. AI Enrichment (`ai_enrich.py`)
+- OCR text extraction (EasyOCR)
+- Chart type classification (EnhancedChartClassifier)
+- Experimental condition extraction (regex + heuristics)
+- Bar chart digitization (BarChartDigitizer)
+
+### 7. Quality Assessment (`quality_assess.py`)
+- Multi-dimensional quality scoring (detection confidence, content completeness, boundary precision, etc.)
+- Anomaly detection (size anomalies, position anomalies)
+- Quality report generation
+
+### 8. Data Export (`package_export.py`)
+- JSON metadata generation
+- CSV data export
+- PNG preview image generation
+- ZIP packaging
 
 ---
 
-## 🧪 测试与评估
+## 🛠️ Development & Contribution
 
-### 运行测试
-```bash
-# 运行所有测试
-bash tests/run_tests.sh
+### Project Structure
 
-# 运行特定测试
-python -m pytest tests/test_detection_fusion.py
-python -m pytest tests/test_enhanced_chart_classifier.py
+```
+figtabminer/
+├── src/figtabminer/          # Core code
+│   ├── pdf_ingest.py         # PDF parsing
+│   ├── layout_detect.py      # Layout detection
+│   ├── figure_extract.py     # Figure extraction
+│   ├── table_extract_v2.py   # Table extraction
+│   ├── caption_align.py      # Caption alignment
+│   ├── ai_enrich.py          # AI enrichment
+│   ├── quality_assess.py     # Quality assessment
+│   ├── package_export.py     # Data export
+│   ├── detectors/            # Detector modules
+│   │   ├── doclayout_detector.py
+│   │   └── table_transformer_detector.py
+│   └── models.py             # Data models
+├── scripts/                  # Script tools
+│   └── run_pipeline.py       # Batch processing script
+├── tools/                    # Auxiliary tools
+│   ├── evaluate_accuracy.py  # Accuracy evaluation
+│   ├── diagnose_accuracy.py  # Diagnostic tool
+│   └── visualize_results.py  # Visualization tool
+├── config/                   # Configuration files
+│   └── figtabminer.json
+├── data/                     # Data directory
+│   ├── samples/              # Sample data
+│   └── outputs/              # Output results
+└── docs/                     # Documentation
+    └── README_CN.md          # Chinese documentation
 ```
 
-### 准确率评估
-```bash
-# 评估系统准确率
-python tools/evaluate_accuracy.py
+### Contribution Guidelines
 
-# 生成详细报告
-python tools/evaluate_accuracy.py --save-report evaluation_report.json
+We welcome all forms of contributions!
 
-# 可视化结果
-python tools/visualize_results.py --report evaluation_report.json
-```
-
-### 创建标注数据集
-参考 [标注指南](docs/ANNOTATION_GUIDE.md) 创建自己的评估数据集。
+1. Fork this repository
+2. Create feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to branch (`git push origin feature/AmazingFeature`)
+5. Open Pull Request
 
 ---
 
-## 🎯 使用场景
+## 🚧 Future Development Roadmap
 
-### 1. 科研数据集构建
-从大量论文中提取图表，构建训练数据集：
-```bash
-# 批量处理
-for pdf in papers/*.pdf; do
-    python scripts/run_pipeline.py --pdf "$pdf"
-done
-```
+As a rapid prototype developed in 2 days, FigTabMiner demonstrates core capabilities but has room for enhancement. Here are planned improvements:
 
-### 2. 文献综述辅助
-快速提取和分类论文中的图表：
-```python
-from figtabminer import pdf_ingest, figure_extract, ai_enrich
+### 1. Performance Optimization
+- **Parallel Processing**: Implement multi-threading for concurrent page processing
+- **Async I/O**: Adopt asyncio for non-blocking file operations
+- **Batch Inference**: Process multiple images in batches for GPU efficiency
+- **Model Quantization**: Reduce model size and inference time
 
-# 提取图表
-ingest_data = pdf_ingest.ingest_pdf("paper.pdf")
-figures = figure_extract.extract_figures(ingest_data, capabilities)
+### 2. Database Integration
+- **SQL Backend**: PostgreSQL integration for metadata storage and querying
+- **Vector Database**: Milvus/Faiss for semantic figure search
+- **Caching Layer**: Redis for frequently accessed results
+- **Query API**: RESTful API for database operations
 
-# 分类
-for fig in figures:
-    chart_type = fig['ai_annotations']['subtype']
-    print(f"{fig['item_id']}: {chart_type}")
-```
+### 3. Cloud Deployment
+- **Web Service**: Deploy on AWS/Azure/GCP with public URL
+- **Scalable Architecture**: Kubernetes orchestration for auto-scaling
+- **CDN Integration**: Fast global access to processed results
+- **API Gateway**: Rate limiting and authentication
 
-### 3. 数据挖掘
-从柱状图中提取数值数据：
-```python
-from figtabminer import bar_chart_digitizer
+### 4. Engineering Best Practices
+- **Docker Support**: Multi-stage Dockerfile for easy deployment
+- **CI/CD Pipeline**: Automated testing and deployment
+- **Logging & Monitoring**: Structured logging with ELK stack
+- **Configuration Management**: Environment-based config system
 
-# 数字化柱状图
-df = bar_chart_digitizer.digitize_bar_chart("bar_chart.png")
-print(df)
-# Output:
-#   category  value
-# 0   Bar_1   45.23
-# 1   Bar_2   67.89
-# 2   Bar_3   32.15
-```
+### 5. User Management System
+- **Go Microservice**: Separate user service in Go for high performance
+- **gRPC Communication**: Decoupled architecture between Go and Python services
+- **Authentication**: JWT-based auth with role-based access control
+- **User Dashboard**: Personal workspace, history, and quota management
+- **Team Collaboration**: Shared projects for labs and organizations
 
----
+### 6. Frontend Enhancement
+- **Modern UI Framework**: React/Vue.js for responsive interface
+- **Real-time Progress**: WebSocket for live processing updates
+- **Interactive Visualization**: D3.js for result exploration
+- **Batch Upload**: Drag-and-drop multiple PDFs with queue management
 
-## 🤝 贡献指南
+### 7. Accuracy Improvements
+- **Fine-tuning**: Domain-specific model fine-tuning on scientific papers
+- **Ensemble Methods**: Combine more specialized models
+- **Active Learning**: User feedback loop for continuous improvement
+- **Post-processing**: Advanced heuristics for edge cases
 
-欢迎贡献代码、报告问题或提出建议！
-
-### 开发环境设置
-```bash
-# 克隆仓库
-git clone https://github.com/yourusername/figtabminer.git
-cd figtabminer
-
-# 创建虚拟环境
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# 安装开发依赖
-pip install -r requirements.txt
-pip install -r requirements-dev.txt  # 如果有
-
-# 运行测试
-bash tests/run_tests.sh
-```
-
-### 提交 Pull Request
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
+**Note**: These enhancements will be implemented incrementally based on user feedback and use case priorities. The current version provides a solid foundation for scientific figure extraction tasks.
 
 ---
 
-## 📝 更新日志
+## 📚 Related Papers & Resources
 
-### v1.7（最新）
-- ✅ 多模型检测融合（DocLayout-YOLO + Table Transformer + PubLayNet）
-- ✅ 层次化图表分类（15+ 种类型）
-- ✅ 增强质量评估系统
-- ✅ 上下文感知边界框合并
-- ✅ 并行检测支持
+### Referenced Models and Methods
 
-### v1.3
-- ✅ 精确图表类型识别（9 种类型）
-- ✅ 柱状图数据自动提取
-- ✅ 降级策略优化
+- **DocLayout-YOLO**: [DocLayout-YOLO: Enhancing Document Layout Analysis through Diverse Synthetic Data](https://arxiv.org/abs/2410.12628)
+- **Table Transformer**: [PubTables-1M: Towards comprehensive table extraction from unstructured documents](https://arxiv.org/abs/2110.00061)
+- **PubLayNet**: [PubLayNet: largest dataset ever for document layout analysis](https://arxiv.org/abs/1908.07836)
 
-### v1.2
-- ✅ 数学公式过滤
-- ✅ 合并验证增强
-- ✅ 表格数据提取增强（成功率 85-90%）
+### Related Projects
 
-### v1.1
-- ✅ 模型加载问题修复
-- ✅ 智能边界框合并
-- ✅ 箭头过滤
-- ✅ 质量评估系统
+- [layoutparser](https://github.com/Layout-Parser/layout-parser): Document layout analysis toolkit
+- [img2table](https://github.com/xavctn/img2table): Image table extraction
+- [EasyOCR](https://github.com/JaidedAI/EasyOCR): Multi-language OCR engine
 
 ---
 
-## 📄 许可证
+## 📄 License
 
-本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件
-
----
-
-## 🙏 致谢
-
-本项目使用了以下开源项目：
-
-- [PyMuPDF](https://github.com/pymupdf/PyMuPDF) - PDF 处理
-- [DocLayout-YOLO](https://github.com/opendatalab/DocLayout-YOLO) - 文档布局检测
-- [Table Transformer](https://github.com/microsoft/table-transformer) - 表格检测
-- [LayoutParser](https://github.com/Layout-Parser/layout-parser) - 布局分析
-- [EasyOCR](https://github.com/JaidedAI/EasyOCR) - OCR 识别
-- [Streamlit](https://streamlit.io/) - Web UI 框架
+This project is licensed under the MIT License.
 
 ---
 
-## 📧 联系方式
+## 🙏 Acknowledgments
 
-- 项目主页：https://github.com/yourusername/figtabminer
-- 问题反馈：https://github.com/yourusername/figtabminer/issues
-- 邮箱：your.email@example.com
+Thanks to the following open-source projects and research work:
+
+- PyMuPDF, pdfplumber - PDF processing
+- OpenCV, scikit-image - Image processing
+- Detectron2, Transformers - Deep learning frameworks
+- EasyOCR - OCR engine
+- Streamlit - Web UI framework
 
 ---
 
-**⭐ 如果这个项目对你有帮助，请给我们一个 Star！**
+## 📧 Contact
+
+- Project Homepage: [https://github.com/LingeringAutumn/FigTabMiner](https://github.com/LingeringAutumn/FigTabMiner)
+- Issue Tracker: [GitHub Issues](https://github.com/LingeringAutumn/FigTabMiner/issues)
+
+---
+
+<div align="center">
+
+**Making Scientific Data Accessible**
+
+⭐ If this project helps you, please give us a Star!
+
+</div>
