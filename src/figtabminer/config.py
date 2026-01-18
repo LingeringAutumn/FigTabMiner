@@ -189,6 +189,10 @@ MATERIAL_PATTERNS = [
 CAPTION_SEARCH_WINDOW = _cfg_int("caption_search_window", default=300)  # pixels vertical distance to search for caption
 CAPTION_DIRECTION_PENALTY = _cfg_int("caption_direction_penalty", default=120)
 CAPTION_CONTINUATION_GAP = _cfg_int("caption_continuation_gap", default=12)
+CAPTION_FORCE_TYPE = _cfg_bool("caption_force_type", default=True)
+
+# Layout caption reclassify (legacy ratio-based)
+LAYOUT_CAPTION_RECLASSIFY_ENABLE = _cfg_bool("layout_caption_reclassify_enable", default=False)
 
 # BBox Merger Configuration
 BBOX_MERGER_CONFIG = _cfg_value("bbox_merger", default={})

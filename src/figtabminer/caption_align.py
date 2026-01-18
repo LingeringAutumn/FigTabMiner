@@ -4,6 +4,16 @@ from . import utils
 
 logger = utils.setup_logging(__name__)
 
+def _caption_type_from_text(text: str) -> str:
+    if not text:
+        return ""
+    t = text.strip().lower()
+    if t.startswith(("fig", "figure", "scheme", "chart", "图")):
+        return "figure"
+    if t.startswith(("table", "tab.", "表")):
+        return "table"
+    return ""
+
 
 def extract_figure_number(text: str) -> int:
     """
@@ -196,6 +206,12 @@ def align_captions(items: list, ingest_data: dict) -> list:
             item["caption"] = best_cand["text"]
             item["caption_bbox"] = best_cand["bbox"]
             item["subfigure_label"] = best_cand.get("subfigure_label")
+            caption_type = _caption_type_from_text(best_cand["text"])
+            if caption_type:
+                item["caption_type"] = caption_type
+                if config.CAPTION_FORCE_TYPE and item.get("type") != caption_type:
+                    item["type"] = caption_type
+                    item["type_override_reason"] = "caption_force_type"
             
             # Generate snippet: Get lines surrounding the caption (multi-line support)
             all_lines = ingest_data["page_text_lines"][page_idx]
@@ -232,6 +248,13 @@ def align_captions(items: list, ingest_data: dict) -> list:
 
                     item["caption"] = " ".join([l["text"] for l in caption_lines]).strip()
                     item["caption_bbox"] = caption_bbox
+
+                    caption_type = _caption_type_from_text(item["caption"])
+                    if caption_type:
+                        item["caption_type"] = caption_type
+                        if config.CAPTION_FORCE_TYPE and item.get("type") != caption_type:
+                            item["type"] = caption_type
+                            item["type_override_reason"] = "caption_force_type"
 
                     # Extract snippet (context around caption)
                     start = max(0, c_idx - 2)

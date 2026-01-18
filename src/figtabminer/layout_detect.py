@@ -612,7 +612,8 @@ def detect_layout(page_img_path: str, page_text: Optional[str] = None) -> List[d
             results = _apply_table_enhancer(results, page_img_path)
     if results:
         results = _apply_text_false_positive_filter(results, page_img_path, page_text)
-        results = _reclassify_by_caption(results, page_text)
+        if config.LAYOUT_CAPTION_RECLASSIFY_ENABLE:
+            results = _reclassify_by_caption(results, page_text)
     
     _CACHE[page_img_path] = results
     return results

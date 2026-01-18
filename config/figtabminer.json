@@ -42,6 +42,8 @@
   "caption_search_window": 300,
   "caption_direction_penalty": 120,
   "caption_continuation_gap": 12,
+  "caption_force_type": true,
+  "layout_caption_reclassify_enable": false,
   
   "bbox_merger": {
     "enable_semantic_merge": true,

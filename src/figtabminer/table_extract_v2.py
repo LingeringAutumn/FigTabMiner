@@ -139,7 +139,12 @@ class EnhancedTableExtractor:
         for line in text_lines:
             text = line.get("text", "").strip()
             if not text or not caption_re.match(text):
-                continue
+                # Allow short lines that contain figure/table markers.
+                lowered = text.lower()
+                if len(text) > 80:
+                    continue
+                if not (re.search(r"\b(fig\.?|figure)\b", lowered) or re.search(r"\b(table|tab\.)\b", lowered)):
+                    continue
             kind = None
             if figure_re.match(text):
                 kind = "figure"
@@ -229,6 +234,11 @@ class EnhancedTableExtractor:
             visual_tables = self._extract_with_visual_detection(pdf_path, ingest_data, output_dir)
             all_tables.extend(visual_tables)
             logger.info(f"Visual detection found {len(visual_tables)} tables")
+
+        # Strategy 4.5: Caption-guided extraction (improves three-line/borderless recall)
+        caption_tables = self._extract_with_caption_guidance(pdf_path, ingest_data, output_dir)
+        all_tables.extend(caption_tables)
+        logger.info(f"Caption-guided found {len(caption_tables)} tables")
 
         # Strategy 5: img2table补漏（仅针对无表格的页面）
         if self.table_enhancer.enable_img2table and self.table_enhancer.img2table_available:
@@ -712,6 +722,63 @@ class EnhancedTableExtractor:
                 continue
         
         return tables
+
+    def _extract_with_caption_guidance(self, pdf_path: str, ingest_data: dict, output_dir: Path) -> list:
+        tables = []
+        with pdfplumber.open(pdf_path) as pdf:
+            for page_idx, lines in enumerate(ingest_data.get("page_text_lines", [])):
+                caption_candidates = [c for c in self._build_caption_candidates(lines) if c["kind"] == "table"]
+                if not caption_candidates:
+                    continue
+
+                page = pdf.pages[page_idx]
+                page_w, page_h = ingest_data["page_sizes"][page_idx]
+                zoom = ingest_data["zoom"]
+                page_img_path = ingest_data["page_images"][page_idx]
+                page_img = cv2.imread(page_img_path)
+
+                # Sort captions by vertical position for boundary calculation.
+                caption_candidates.sort(key=lambda c: c["bbox"][1])
+                for idx, cand in enumerate(caption_candidates):
+                    cb = cand["bbox"]
+                    # Prefer region below caption; fallback to above if too small.
+                    below_top = cb[3]
+                    below_bottom = min(page_h, cb[3] + page_h * 0.6)
+                    if idx + 1 < len(caption_candidates):
+                        below_bottom = min(below_bottom, caption_candidates[idx + 1]["bbox"][1])
+                    above_bottom = cb[1]
+                    above_top = max(0, cb[1] - page_h * 0.6)
+
+                    regions = []
+                    if below_bottom - below_top > config.MIN_TABLE_DIM:
+                        regions.append([0, below_top, page_w, below_bottom])
+                    if above_bottom - above_top > config.MIN_TABLE_DIM:
+                        regions.append([0, above_top, page_w, above_bottom])
+
+                    for region in regions:
+                        bbox_pdf = [c / zoom for c in region]
+                        table_data, strategy = self._extract_table_data_multi(page, bbox_pdf)
+                        if not table_data:
+                            continue
+
+                        bbox_shrunk = region
+                        if page_img is not None:
+                            try:
+                                bbox_shrunk = self._shrink_table_bbox(region, page_img, lines)
+                            except Exception:
+                                bbox_shrunk = region
+
+                        table_item = self._create_table_item_dual_path(
+                            table_data, page_idx, bbox_shrunk, region,
+                            ingest_data, output_dir,
+                            source="caption_guided",
+                            strategy=strategy or "caption_guided",
+                            score=0.5
+                        )
+                        if table_item:
+                            tables.append(table_item)
+                        break
+        return tables
     
     def _detect_table_regions_visual(self, page_img: np.ndarray) -> List[List[float]]:
         """
@@ -764,27 +831,36 @@ class EnhancedTableExtractor:
         Detect three-line (or two-line) tables using horizontal line clustering.
         """
         h, w = gray.shape[:2]
-        edges = cv2.Canny(gray, 30, 100)
         min_line_length = int(w * config.TABLE_THREE_LINE_MIN_LINE_LENGTH_RATIO)
-        lines = cv2.HoughLinesP(
-            edges, 1, np.pi / 180, threshold=50,
-            minLineLength=max(30, min_line_length), maxLineGap=10
-        )
-        if lines is None:
-            return []
 
-        # Collect horizontal lines
+        # Morphology-based horizontal line detection (robust for thin lines)
+        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (max(30, min_line_length), 1))
+        h_lines_img = cv2.morphologyEx(binary, cv2.MORPH_OPEN, h_kernel, iterations=1)
+        contours, _ = cv2.findContours(h_lines_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
         h_lines = []
-        for line in lines:
-            x1, y1, x2, y2 = line[0]
-            if abs(y2 - y1) <= 3:  # near-horizontal
-                length = abs(x2 - x1)
-                if length >= min_line_length:
-                    y = int((y1 + y2) / 2)
-                    h_lines.append((min(x1, x2), y, max(x1, x2)))
+        for cnt in contours:
+            x, y, w_line, h_line = cv2.boundingRect(cnt)
+            if w_line >= min_line_length and h_line <= 6:
+                h_lines.append((x, y + h_line // 2, x + w_line))
 
+        # Fallback to Hough if morphology finds nothing.
         if not h_lines:
-            return []
+            edges = cv2.Canny(gray, 30, 100)
+            lines = cv2.HoughLinesP(
+                edges, 1, np.pi / 180, threshold=50,
+                minLineLength=max(30, min_line_length), maxLineGap=10
+            )
+            if lines is None:
+                return []
+            for line in lines:
+                x1, y1, x2, y2 = line[0]
+                if abs(y2 - y1) <= 3:
+                    length = abs(x2 - x1)
+                    if length >= min_line_length:
+                        y = int((y1 + y2) / 2)
+                        h_lines.append((min(x1, x2), y, max(x1, x2)))
 
         # Cluster lines by y
         h_lines.sort(key=lambda l: l[1])

@@ -115,7 +115,12 @@ def _build_caption_candidates(text_lines: list) -> list:
         if not text:
             continue
         if not caption_re.match(text):
-            continue
+            # Allow short lines that contain figure/table markers.
+            lowered = text.lower()
+            if len(text) > 80:
+                continue
+            if not (re.search(r"\b(fig\.?|figure)\b", lowered) or re.search(r"\b(table|tab\.)\b", lowered)):
+                continue
         kind = None
         if figure_re.match(text):
             kind = "figure"
@@ -157,6 +162,92 @@ def _nearest_caption_kind(bbox: list, candidates: list, prefer_kind: str) -> tup
     if best_dist > config.CAPTION_SEARCH_WINDOW:
         return None, float("inf")
     return best_kind, best_dist
+
+
+def _collect_text_in_bbox(bbox: list, text_lines: list) -> list:
+    if not text_lines:
+        return []
+    collected = []
+    for line in text_lines:
+        lb = line.get("bbox")
+        if not lb:
+            continue
+        if _bbox_intersection_area(bbox, lb) <= 0:
+            continue
+        collected.append(line.get("text", ""))
+    return collected
+
+
+def _caption_guided_candidates(page_img, caption_candidates, text_lines, page_w, page_h, existing_boxes):
+    if not caption_candidates:
+        return []
+    import cv2
+    import numpy as np
+    gray = cv2.cvtColor(page_img, cv2.COLOR_BGR2GRAY)
+    _, ink = cv2.threshold(gray, 245, 255, cv2.THRESH_BINARY_INV)
+
+    # Build text mask to suppress paragraph areas.
+    text_mask = np.zeros_like(ink)
+    for line in text_lines:
+        lb = line.get("bbox")
+        if not lb:
+            continue
+        x0, y0, x1, y1 = [int(c) for c in lb]
+        x0, y0 = max(0, x0), max(0, y0)
+        x1, y1 = min(page_w, x1), min(page_h, y1)
+        if x1 > x0 and y1 > y0:
+            text_mask[y0:y1, x0:x1] = 255
+
+    ink[text_mask > 0] = 0
+    ink = cv2.morphologyEx(ink, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5)))
+
+    candidates = []
+    for cand in caption_candidates:
+        if cand["kind"] != "figure":
+            continue
+        bbox = cand["bbox"]
+        # Prefer region above caption; if none found, try below.
+        search_regions = []
+        if bbox[1] > page_h * 0.2:
+            search_regions.append([0, max(0, bbox[1] - page_h * 0.6), page_w, bbox[1]])
+        if bbox[3] < page_h * 0.8:
+            search_regions.append([0, bbox[3], page_w, min(page_h, bbox[3] + page_h * 0.6)])
+
+        for region in search_regions:
+            rx0, ry0, rx1, ry1 = [int(c) for c in region]
+            if ry1 - ry0 < config.MIN_FIGURE_DIM:
+                continue
+            crop = ink[ry0:ry1, rx0:rx1]
+            if crop.size == 0:
+                continue
+            num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(crop, connectivity=8)
+            if num_labels <= 1:
+                continue
+            # Pick largest component.
+            largest = None
+            largest_area = 0
+            for i in range(1, num_labels):
+                area = stats[i, cv2.CC_STAT_AREA]
+                if area > largest_area:
+                    largest_area = area
+                    largest = stats[i]
+            if largest is None:
+                continue
+            x, y, w, h = largest[cv2.CC_STAT_LEFT], largest[cv2.CC_STAT_TOP], largest[cv2.CC_STAT_WIDTH], largest[cv2.CC_STAT_HEIGHT]
+            if w < config.MIN_FIGURE_DIM or h < config.MIN_FIGURE_DIM or w * h < config.MIN_FIGURE_AREA:
+                continue
+            cand_bbox = [rx0 + x, ry0 + y, rx0 + x + w, ry0 + y + h]
+            # Avoid duplicates.
+            if any(utils.bbox_iou(cand_bbox, b["bbox"]) > 0.3 for b in existing_boxes):
+                continue
+            candidates.append({
+                "bbox": cand_bbox,
+                "type": "figure",
+                "score": 0.4,
+                "source": "caption_guided",
+            })
+            break
+    return candidates
 
 
 def _merge_two_boxes(box1: dict, box2: dict) -> dict:
@@ -466,6 +557,19 @@ def extract_figures(ingest_data: dict, capabilities: Optional[dict] = None) -> l
                 candidate_boxes = split_boxes
             if config.FIGURE_REFINE_BBOX_ENABLE:
                 candidate_boxes = merger.refine_boundaries(candidate_boxes, page_img)
+
+            # Caption-guided fallback for missing figures (vector graphics, etc.)
+            if caption_candidates:
+                candidate_boxes.extend(
+                    _caption_guided_candidates(
+                        page_img,
+                        caption_candidates,
+                        page_text_lines,
+                        page_w,
+                        page_h,
+                        candidate_boxes,
+                    )
+                )
         else:
             # Fallback to simple overlap-based merge
             logger.debug("Using fallback merge (no page image)")
@@ -543,6 +647,12 @@ def extract_figures(ingest_data: dict, capabilities: Optional[dict] = None) -> l
                         page_img,
                     )
                     if is_text:
+                        continue
+                # Block obvious text sections.
+                text_lines_in_bbox = _collect_text_in_bbox([x0, y0, x1, y1], page_text_lines)
+                if len(text_lines_in_bbox) >= 4:
+                    joined = " ".join(text_lines_in_bbox).lower()
+                    if any(pattern.lower() in joined for pattern in classifier.text_patterns):
                         continue
                 kind, dist = _nearest_caption_kind([x0, y0, x1, y1], caption_candidates, prefer_kind="figure")
                 if kind == "table" and dist < config.CAPTION_SEARCH_WINDOW * 0.7:
