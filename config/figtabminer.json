@@ -33,7 +33,7 @@
   "table_text_refine_min_lines": 2,
   "table_text_refine_min_width_ratio": 0.5,
   "table_text_refine_padding": 8,
-  "table_text_refine_min_area_ratio": 0.4,
+  "table_text_refine_min_area_ratio": 0.25,
   "table_three_line_detect_enable": true,
   "table_three_line_min_line_length_ratio": 0.3,
   "table_three_line_min_lines": 2,

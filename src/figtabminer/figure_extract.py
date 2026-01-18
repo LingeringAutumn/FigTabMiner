@@ -9,6 +9,7 @@ from . import bbox_merger
 from . import content_classifier
 from .arxiv_filter import ArxivFilter
 from .models import Detection
+from .text_false_positive_filter import TextFalsePositiveFilter
 
 logger = utils.setup_logging(__name__)
 
@@ -366,6 +367,15 @@ def extract_figures(ingest_data: dict, capabilities: Optional[dict] = None) -> l
     doc = fitz.open(pdf_path)
     
     fig_counter = 0
+    text_filter = TextFalsePositiveFilter(
+        table_confidence_threshold=config.TEXT_FILTER_CONFIDENCE_THRESHOLD,
+        enable_transformer_verification=config.TEXT_FILTER_ENABLE_TRANSFORMER,
+        text_density_threshold=config.TEXT_FILTER_TEXT_DENSITY_THRESHOLD,
+        min_table_structure_score=config.TEXT_FILTER_MIN_STRUCTURE_SCORE,
+        enable_position_heuristics=config.TEXT_FILTER_ENABLE_POSITION_HEURISTICS,
+        enable_ocr_pattern_matching=config.TEXT_FILTER_ENABLE_OCR_PATTERN,
+        enable_text_line_detection=config.TEXT_FILTER_ENABLE_TEXT_LINE_DETECTION,
+    )
     
     use_layout = bool(capabilities and capabilities.get("layout"))
     
@@ -447,6 +457,7 @@ def extract_figures(ingest_data: dict, capabilities: Optional[dict] = None) -> l
         # Use smart merger
         if page_img is not None:
             candidate_boxes = merger.merge(candidate_boxes, page_image=page_img, captions=None)
+            candidate_boxes = merger.split_complex_figures(candidate_boxes, page_img)
             candidate_boxes = _merge_by_proximity(candidate_boxes, page_text_lines, caption_candidates)
             if config.FIGURE_SPLIT_TEXT_BAND_ENABLE:
                 split_boxes = []
@@ -520,6 +531,19 @@ def extract_figures(ingest_data: dict, capabilities: Optional[dict] = None) -> l
                     continue
                 if classifier.is_math_equation({"bbox": [x0, y0, x1, y1]}, page_img, page_text_lines):
                     continue
+                coverage = _text_line_coverage_ratio([x0, y0, x1, y1], page_text_lines)
+                if coverage >= config.FIGURE_TEXT_COVERAGE_THRESHOLD:
+                    is_text, _ = text_filter.detect_continuous_text_lines(
+                        Detection(
+                            bbox=[x0, y0, x1, y1],
+                            type="table",
+                            score=float(box_dict.get("score", 0.5)),
+                            detector=str(box_dict.get("source", "unknown")),
+                        ),
+                        page_img,
+                    )
+                    if is_text:
+                        continue
                 kind, dist = _nearest_caption_kind([x0, y0, x1, y1], caption_candidates, prefer_kind="figure")
                 if kind == "table" and dist < config.CAPTION_SEARCH_WINDOW * 0.7:
                     continue
