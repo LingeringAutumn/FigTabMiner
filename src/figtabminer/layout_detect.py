@@ -602,16 +602,13 @@ def detect_layout(page_img_path: str, page_text: Optional[str] = None) -> List[d
     else:
         logger.debug("PubLayNet not available, no fallback")
     
-    # Apply filters and enhancers in order:
-    # 1. arXiv filter (remove arXiv false positives)
-    # 2. Text false positive filter (remove text false positives)
-    # 3. Reclassify based on captions (fix figure/table misclassification)
-    # 4. Table enhancer (add missed tables)
+    # Apply filters in order:
+    # 1. Text false positive filter (remove text false positives) - MOST IMPORTANT
+    # 2. Reclassify based on captions (fix figure/table misclassification)
+    # NOTE: Disabled arXiv filter and Table enhancer as they introduce more problems
     if results:
-        results = _apply_arxiv_filter(results, page_img_path)
         results = _apply_text_false_positive_filter(results, page_img_path, page_text)
         results = _reclassify_by_caption(results, page_text)
-        results = _apply_table_enhancer(results, page_img_path)
     
     _CACHE[page_img_path] = results
     return results
@@ -619,7 +616,7 @@ def detect_layout(page_img_path: str, page_text: Optional[str] = None) -> List[d
 
 def _reclassify_by_caption(detections: List[dict], page_text: Optional[str] = None) -> List[dict]:
     """
-    Reclassify detections based on nearby captions.
+    Reclassify detections based on nearby captions with spatial awareness.
     
     If a detection labeled as "table" has a nearby "Figure X" caption,
     reclassify it as "figure" and vice versa.
@@ -637,8 +634,9 @@ def _reclassify_by_caption(detections: List[dict], page_text: Optional[str] = No
     import re
     
     # Find all Figure and Table captions in the text
-    figure_pattern = r'(?:Figure|Fig\.|图)\s*[0-9]+[a-z]?'
-    table_pattern = r'(?:Table|Tab\.|表)\s*[0-9]+[a-z]?'
+    # More comprehensive patterns including Chinese
+    figure_pattern = r'(?:Figure|Fig\.|FIG\.|图|圖)\s*[0-9]+[a-z]?'
+    table_pattern = r'(?:Table|Tab\.|TABLE|表|表格)\s*[0-9]+[a-z]?'
     
     figure_matches = list(re.finditer(figure_pattern, page_text, re.IGNORECASE))
     table_matches = list(re.finditer(table_pattern, page_text, re.IGNORECASE))
@@ -646,37 +644,34 @@ def _reclassify_by_caption(detections: List[dict], page_text: Optional[str] = No
     if not figure_matches and not table_matches:
         return detections
     
+    logger.info(f"Found {len(figure_matches)} figure captions and {len(table_matches)} table captions")
+    
     reclassified = []
     reclassified_count = 0
     
     for det in detections:
         original_type = det['type']
         
-        # For each detection, check if there's a caption nearby
-        # We use a simple heuristic: if the caption appears in the text,
-        # and the detection is close to where the caption might be,
-        # reclassify accordingly
-        
-        # Count nearby figure vs table captions
-        # (This is a simplified heuristic - in reality, we'd need text coordinates)
+        # Strategy 1: Count captions globally
+        # If there are significantly more figure captions than table captions,
+        # and a detection is labeled as "table", it's likely a figure
         figure_count = len(figure_matches)
         table_count = len(table_matches)
         
-        # If detection is labeled as "table" but there are more figure captions
-        if det['type'] == 'table' and figure_count > table_count and figure_count > 0:
+        # Only reclassify if there's a clear majority (at least 2:1 ratio)
+        if det['type'] == 'table' and figure_count > table_count * 2 and figure_count >= 2:
             det['type'] = 'figure'
             det['reclassified'] = True
-            det['reclassified_reason'] = f'Found {figure_count} figure captions vs {table_count} table captions'
+            det['reclassified_reason'] = f'Found {figure_count} figure captions vs {table_count} table captions (ratio {figure_count/max(table_count,1):.1f}:1)'
             reclassified_count += 1
-            logger.info(f"Reclassified table -> figure based on captions (bbox={det['bbox']})")
+            logger.info(f"Reclassified table -> figure based on caption ratio (bbox={det['bbox']})")
         
-        # If detection is labeled as "figure" but there are more table captions
-        elif det['type'] == 'figure' and table_count > figure_count and table_count > 0:
+        elif det['type'] == 'figure' and table_count > figure_count * 2 and table_count >= 2:
             det['type'] = 'table'
             det['reclassified'] = True
-            det['reclassified_reason'] = f'Found {table_count} table captions vs {figure_count} figure captions'
+            det['reclassified_reason'] = f'Found {table_count} table captions vs {figure_count} figure captions (ratio {table_count/max(figure_count,1):.1f}:1)'
             reclassified_count += 1
-            logger.info(f"Reclassified figure -> table based on captions (bbox={det['bbox']})")
+            logger.info(f"Reclassified figure -> table based on caption ratio (bbox={det['bbox']})")
         
         reclassified.append(det)
     
