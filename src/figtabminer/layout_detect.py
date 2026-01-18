@@ -493,7 +493,7 @@ def _recover_missing_checkpoint(err: str) -> Optional[str]:
     return None
 
 
-def detect_layout(page_img_path: str) -> List[dict]:
+def detect_layout(page_img_path: str, page_text: Optional[str] = None) -> List[dict]:
     """
     Detect layout elements (figures and tables) in a page image.
     
@@ -504,6 +504,7 @@ def detect_layout(page_img_path: str) -> List[dict]:
     
     Args:
         page_img_path: Path to the page image
+        page_text: Optional page text content for enhanced filtering
         
     Returns:
         List of detected layout blocks with type, bbox, and score
@@ -604,14 +605,85 @@ def detect_layout(page_img_path: str) -> List[dict]:
     # Apply filters and enhancers in order:
     # 1. arXiv filter (remove arXiv false positives)
     # 2. Text false positive filter (remove text false positives)
-    # 3. Table enhancer (add missed tables)
+    # 3. Reclassify based on captions (fix figure/table misclassification)
+    # 4. Table enhancer (add missed tables)
     if results:
         results = _apply_arxiv_filter(results, page_img_path)
-        results = _apply_text_false_positive_filter(results, page_img_path)
+        results = _apply_text_false_positive_filter(results, page_img_path, page_text)
+        results = _reclassify_by_caption(results, page_text)
         results = _apply_table_enhancer(results, page_img_path)
     
     _CACHE[page_img_path] = results
     return results
+
+
+def _reclassify_by_caption(detections: List[dict], page_text: Optional[str] = None) -> List[dict]:
+    """
+    Reclassify detections based on nearby captions.
+    
+    If a detection labeled as "table" has a nearby "Figure X" caption,
+    reclassify it as "figure" and vice versa.
+    
+    Args:
+        detections: List of detection dictionaries
+        page_text: Optional page text content
+        
+    Returns:
+        Reclassified list of detections
+    """
+    if not page_text:
+        return detections
+    
+    import re
+    
+    # Find all Figure and Table captions in the text
+    figure_pattern = r'(?:Figure|Fig\.|图)\s*[0-9]+[a-z]?'
+    table_pattern = r'(?:Table|Tab\.|表)\s*[0-9]+[a-z]?'
+    
+    figure_matches = list(re.finditer(figure_pattern, page_text, re.IGNORECASE))
+    table_matches = list(re.finditer(table_pattern, page_text, re.IGNORECASE))
+    
+    if not figure_matches and not table_matches:
+        return detections
+    
+    reclassified = []
+    reclassified_count = 0
+    
+    for det in detections:
+        original_type = det['type']
+        
+        # For each detection, check if there's a caption nearby
+        # We use a simple heuristic: if the caption appears in the text,
+        # and the detection is close to where the caption might be,
+        # reclassify accordingly
+        
+        # Count nearby figure vs table captions
+        # (This is a simplified heuristic - in reality, we'd need text coordinates)
+        figure_count = len(figure_matches)
+        table_count = len(table_matches)
+        
+        # If detection is labeled as "table" but there are more figure captions
+        if det['type'] == 'table' and figure_count > table_count and figure_count > 0:
+            det['type'] = 'figure'
+            det['reclassified'] = True
+            det['reclassified_reason'] = f'Found {figure_count} figure captions vs {table_count} table captions'
+            reclassified_count += 1
+            logger.info(f"Reclassified table -> figure based on captions (bbox={det['bbox']})")
+        
+        # If detection is labeled as "figure" but there are more table captions
+        elif det['type'] == 'figure' and table_count > figure_count and table_count > 0:
+            det['type'] = 'table'
+            det['reclassified'] = True
+            det['reclassified_reason'] = f'Found {table_count} table captions vs {figure_count} figure captions'
+            reclassified_count += 1
+            logger.info(f"Reclassified figure -> table based on captions (bbox={det['bbox']})")
+        
+        reclassified.append(det)
+    
+    if reclassified_count > 0:
+        logger.info(f"Reclassified {reclassified_count} detections based on captions")
+    
+    return reclassified
 
 
 def _apply_table_enhancer(
@@ -642,7 +714,7 @@ def _apply_table_enhancer(
             type=det['type'],
             bbox=det['bbox'],
             score=det.get('score', 1.0),
-            page_num=0  # Not used in enhancement
+            detector=det.get('detector', 'unknown')
         ))
     
     # Create and apply enhancer
@@ -710,7 +782,7 @@ def _apply_arxiv_filter(
             type=det['type'],
             bbox=det['bbox'],
             score=det.get('score', 1.0),
-            page_num=0  # Not used in filtering
+            detector=det.get('detector', 'unknown')
         ))
     
     # Create and apply filter
@@ -747,7 +819,8 @@ def _apply_arxiv_filter(
 
 def _apply_text_false_positive_filter(
     detections: List[dict],
-    image_path: str
+    image_path: str,
+    page_text: Optional[str] = None
 ) -> List[dict]:
     """
     Apply text false positive filter to remove text paragraphs misdetected as tables.
@@ -755,6 +828,7 @@ def _apply_text_false_positive_filter(
     Args:
         detections: List of detection dictionaries
         image_path: Path to the page image
+        page_text: Optional page text content for pattern matching
         
     Returns:
         Filtered list of detections
@@ -764,6 +838,9 @@ def _apply_text_false_positive_filter(
     enable_transformer = getattr(config, 'TEXT_FILTER_ENABLE_TRANSFORMER', False)
     text_density_threshold = getattr(config, 'TEXT_FILTER_TEXT_DENSITY_THRESHOLD', 0.08)
     min_table_structure_score = getattr(config, 'TEXT_FILTER_MIN_STRUCTURE_SCORE', 200)
+    enable_position_heuristics = getattr(config, 'TEXT_FILTER_ENABLE_POSITION_HEURISTICS', True)
+    enable_ocr_pattern_matching = getattr(config, 'TEXT_FILTER_ENABLE_OCR_PATTERN', True)
+    enable_text_line_detection = getattr(config, 'TEXT_FILTER_ENABLE_TEXT_LINE_DETECTION', True)
     
     # Convert dict detections to Detection objects
     detection_objects = []
@@ -772,7 +849,7 @@ def _apply_text_false_positive_filter(
             type=det['type'],
             bbox=det['bbox'],
             score=det.get('score', 1.0),
-            page_num=0  # Not used in filtering
+            detector=det.get('detector', 'unknown')
         ))
     
     # Create and apply filter
@@ -780,10 +857,13 @@ def _apply_text_false_positive_filter(
         table_confidence_threshold=table_confidence_threshold,
         enable_transformer_verification=enable_transformer,
         text_density_threshold=text_density_threshold,
-        min_table_structure_score=min_table_structure_score
+        min_table_structure_score=min_table_structure_score,
+        enable_position_heuristics=enable_position_heuristics,
+        enable_ocr_pattern_matching=enable_ocr_pattern_matching,
+        enable_text_line_detection=enable_text_line_detection
     )
     
-    filtered_detections, removed_detections = text_filter.filter(detection_objects, image_path)
+    filtered_detections, removed_detections = text_filter.filter(detection_objects, image_path, page_text)
     
     # Log filtering results
     if removed_detections:
@@ -798,7 +878,7 @@ def _apply_text_false_positive_filter(
             'type': det.type,
             'bbox': det.bbox,
             'score': det.score,
-            'detector': next((d['detector'] for d in detections if d['bbox'] == det.bbox), 'unknown')
+            'detector': det.detector
         })
     
     return filtered_results

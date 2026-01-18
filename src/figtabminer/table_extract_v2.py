@@ -40,14 +40,15 @@ class EnhancedTableExtractor:
     def __init__(self, capabilities: Dict):
         self.capabilities = capabilities
         
-        # Initialize merger
+        # Initialize merger with DISABLED merging for tables
+        # Tables should NOT be merged to avoid combining separate tables
         merger_config = {
-            'iou_threshold': config.TABLE_MERGE_IOU,
-            'overlap_threshold': 0.7,
-            'distance_threshold': 30,
-            'enable_semantic_merge': False,
-            'enable_visual_merge': False,
-            'enable_noise_filter': False,
+            'iou_threshold': 0.8,  # Very high threshold - only merge if almost identical
+            'overlap_threshold': 0.9,  # Very high - only merge if almost complete overlap
+            'distance_threshold': 5,  # Very small - tables must be touching
+            'enable_semantic_merge': False,  # Disabled
+            'enable_visual_merge': False,  # Disabled
+            'enable_noise_filter': False,  # Disabled
             'min_area_threshold': config.MIN_TABLE_AREA
         }
         self.merger = bbox_merger.SmartBBoxMerger(merger_config)
@@ -208,7 +209,12 @@ class EnhancedTableExtractor:
         layout_boxes_by_page = {}
         for page_idx in range(ingest_data["num_pages"]):
             page_img_path = ingest_data["page_images"][page_idx]
-            layout_blocks = layout_detect.detect_layout(page_img_path)
+            
+            # Get page text for enhanced filtering
+            page_text_lines = ingest_data.get("page_text_lines", [[]])[page_idx] if page_idx < len(ingest_data.get("page_text_lines", [])) else []
+            page_text = " ".join([line.get("text", "") for line in page_text_lines]) if page_text_lines else None
+            
+            layout_blocks = layout_detect.detect_layout(page_img_path, page_text)
             table_boxes = [{'bbox': b["bbox"], 'type': 'table', 'score': b.get('score', 0.5)} 
                           for b in layout_blocks if b["type"] == "table"]
             if table_boxes:
@@ -380,6 +386,10 @@ class EnhancedTableExtractor:
                 # Extract data from found tables
                 zoom = ingest_data["zoom"]
                 
+                # Load page image for bbox shrinking
+                page_img_path = ingest_data["page_images"][page_idx]
+                page_img = cv2.imread(page_img_path)
+                
                 for t_obj in best_tables:
                     table_data = t_obj.extract()
                     
@@ -388,6 +398,12 @@ class EnhancedTableExtractor:
                     
                     bbox_pdf = list(t_obj.bbox)
                     bbox_rendered = [c * zoom for c in bbox_pdf]
+                    
+                    # CRITICAL: Shrink bbox BEFORE creating table item
+                    # pdfplumber's bbox often includes surrounding text
+                    if page_img is not None:
+                        bbox_rendered = self._shrink_table_bbox(bbox_rendered, page_img)
+                        logger.debug(f"Shrunk pdfplumber bbox from {[c * zoom for c in bbox_pdf]} to {bbox_rendered}")
                     
                     table_item = self._create_table_item(
                         table_data, page_idx, bbox_rendered,
@@ -523,6 +539,13 @@ class EnhancedTableExtractor:
                           ingest_data: dict, output_dir: Path, source: str, strategy: str, score: float) -> Optional[Dict]:
         """Create a table item with all metadata."""
         try:
+            # Shrink bbox to avoid including surrounding text
+            page_img_path = ingest_data["page_images"][page_idx]
+            page_img = cv2.imread(page_img_path)
+            
+            if page_img is not None:
+                bbox_rendered = self._shrink_table_bbox(bbox_rendered, page_img)
+            
             # Create item directory (temporary ID)
             temp_id = f"temp_{page_idx}_{int(bbox_rendered[0])}_{int(bbox_rendered[1])}"
             item_dir = utils.ensure_dir(output_dir / temp_id)
@@ -535,9 +558,6 @@ class EnhancedTableExtractor:
             
             # Create preview
             try:
-                page_img_path = ingest_data["page_images"][page_idx]
-                page_img = cv2.imread(page_img_path)
-                
                 if page_img is not None:
                     h, w = page_img.shape[:2]
                     x0, y0, x1, y1 = [int(c) for c in bbox_rendered]
@@ -576,8 +596,150 @@ class EnhancedTableExtractor:
             logger.error(f"Error creating table item: {e}")
             return None
     
+    def _shrink_table_bbox(self, bbox: List[float], page_img: np.ndarray, shrink_ratio: float = 0.12) -> List[float]:
+        """
+        AGGRESSIVELY shrink table bounding box to remove surrounding text.
+        
+        Strategy:
+        1. First try structure-based shrinking (detect table lines)
+        2. If that fails, use projection-based shrinking
+        3. Apply multiple passes to ensure all surrounding text is removed
+        
+        Args:
+            bbox: Original bounding box [x0, y0, x1, y1]
+            page_img: Page image
+            shrink_ratio: Ratio to shrink (default 12%, very aggressive)
+            
+        Returns:
+            Shrunk bounding box
+        """
+        x0, y0, x1, y1 = bbox
+        width = x1 - x0
+        height = y1 - y0
+        
+        # Extract crop
+        h, w = page_img.shape[:2]
+        crop_x0, crop_y0 = max(0, int(x0)), max(0, int(y0))
+        crop_x1, crop_y1 = min(w, int(x1)), min(h, int(y1))
+        
+        if crop_x1 <= crop_x0 or crop_y1 <= crop_y0:
+            return bbox
+        
+        crop = page_img[crop_y0:crop_y1, crop_x0:crop_x1]
+        
+        if crop.size == 0:
+            return bbox
+        
+        # Convert to grayscale
+        gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) if len(crop.shape) == 3 else crop
+        
+        # PASS 1: Structure-based shrinking (detect table lines)
+        edges = cv2.Canny(gray, 50, 150)
+        h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (50, 1))  # Longer kernel for better line detection
+        v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 50))
+        h_lines = cv2.morphologyEx(edges, cv2.MORPH_OPEN, h_kernel)
+        v_lines = cv2.morphologyEx(edges, cv2.MORPH_OPEN, v_kernel)
+        
+        # Combine lines to get table structure
+        table_structure = cv2.add(h_lines, v_lines)
+        
+        # Dilate to connect nearby lines
+        dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
+        table_structure = cv2.dilate(table_structure, dilate_kernel, iterations=3)
+        
+        # Find the bounding box of the table structure
+        coords = cv2.findNonZero(table_structure)
+        
+        if coords is not None and len(coords) > 100:  # Need sufficient structure pixels
+            # Get bounding rect of table structure
+            struct_x, struct_y, struct_w, struct_h = cv2.boundingRect(coords)
+            
+            # Add minimal padding
+            padding = max(20, int(min(width, height) * shrink_ratio))
+            
+            new_y0 = y0 + max(0, struct_y - padding)
+            new_y1 = y0 + min(crop.shape[0], struct_y + struct_h + padding)
+            new_x0 = x0 + max(0, struct_x - padding)
+            new_x1 = x0 + min(crop.shape[1], struct_x + struct_w + padding)
+            
+            # Ensure valid bbox
+            if new_x1 > new_x0 and new_y1 > new_y0:
+                # Check if shrinking is reasonable (keep at least 40% of original area)
+                new_area = (new_x1 - new_x0) * (new_y1 - new_y0)
+                old_area = width * height
+                
+                if new_area > old_area * 0.4:  # Reduced from 0.5
+                    logger.info(f"Shrunk table bbox (structure-based) from {bbox} to [{new_x0:.0f}, {new_y0:.0f}, {new_x1:.0f}, {new_y1:.0f}] (area: {old_area:.0f} -> {new_area:.0f}, {new_area/old_area:.1%})")
+                    return [new_x0, new_y0, new_x1, new_y1]
+        
+        # PASS 2: Projection-based shrinking (fallback)
+        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        
+        # Horizontal projection (sum along x-axis)
+        h_projection = np.sum(binary, axis=1)
+        # Vertical projection (sum along y-axis)
+        v_projection = np.sum(binary, axis=0)
+        
+        # Find first and last rows/cols with significant content (VERY STRICT: 25% instead of 20%)
+        threshold_h = np.max(h_projection) * 0.25  # Increased from 0.20
+        threshold_v = np.max(v_projection) * 0.25  # Increased from 0.20
+        
+        # Find top boundary (skip empty rows at top)
+        top_idx = 0
+        for i in range(len(h_projection)):
+            if h_projection[i] > threshold_h:
+                top_idx = i
+                break
+        
+        # Find bottom boundary (skip empty rows at bottom)
+        bottom_idx = len(h_projection) - 1
+        for i in range(len(h_projection) - 1, -1, -1):
+            if h_projection[i] > threshold_h:
+                bottom_idx = i
+                break
+        
+        # Find left boundary
+        left_idx = 0
+        for i in range(len(v_projection)):
+            if v_projection[i] > threshold_v:
+                left_idx = i
+                break
+        
+        # Find right boundary
+        right_idx = len(v_projection) - 1
+        for i in range(len(v_projection) - 1, -1, -1):
+            if v_projection[i] > threshold_v:
+                right_idx = i
+                break
+        
+        # Apply shrinking with larger padding
+        padding = max(20, int(min(width, height) * shrink_ratio))
+        
+        new_y0 = y0 + max(0, top_idx - padding)
+        new_y1 = y0 + min(crop.shape[0], bottom_idx + padding)
+        new_x0 = x0 + max(0, left_idx - padding)
+        new_x1 = x0 + min(crop.shape[1], right_idx + padding)
+        
+        # Ensure valid bbox
+        if new_x1 > new_x0 and new_y1 > new_y0:
+            # Check if shrinking is reasonable (keep at least 40% of original area)
+            new_area = (new_x1 - new_x0) * (new_y1 - new_y0)
+            old_area = width * height
+            
+            if new_area > old_area * 0.4:  # Reduced from 0.5
+                logger.info(f"Shrunk table bbox (projection-based) from {bbox} to [{new_x0:.0f}, {new_y0:.0f}, {new_x1:.0f}, {new_y1:.0f}] (area: {old_area:.0f} -> {new_area:.0f}, {new_area/old_area:.1%})")
+                return [new_x0, new_y0, new_x1, new_y1]
+        
+        logger.warning(f"Could not shrink table bbox {bbox} - keeping original")
+        return bbox
+    
     def _deduplicate_tables(self, tables: List[Dict]) -> List[Dict]:
-        """Remove duplicate table detections."""
+        """
+        Remove duplicate table detections.
+        
+        STRICT deduplication to avoid merging separate tables.
+        Only removes if IoU > 0.7 (very high overlap).
+        """
         if not tables:
             return []
         
@@ -601,7 +763,10 @@ class EnhancedTableExtractor:
                 is_duplicate = False
                 for kept_table in kept:
                     iou = utils.bbox_iou(table['bbox'], kept_table['bbox'])
-                    if iou > 0.5:  # Significant overlap
+                    
+                    # STRICT: Only consider duplicate if IoU > 0.7 (very high overlap)
+                    # This prevents merging separate tables that are close together
+                    if iou > 0.7:  # Increased from 0.5
                         is_duplicate = True
                         # Keep the one with more rows/cols
                         if (table.get('row_count', 0) * table.get('col_count', 0) >
@@ -609,6 +774,9 @@ class EnhancedTableExtractor:
                             # Replace with better one
                             kept.remove(kept_table)
                             kept.append(table)
+                            logger.debug(f"Replaced duplicate table (IoU={iou:.2f})")
+                        else:
+                            logger.debug(f"Skipped duplicate table (IoU={iou:.2f})")
                         break
                 
                 if not is_duplicate:
@@ -616,6 +784,7 @@ class EnhancedTableExtractor:
             
             unique.extend(kept)
         
+        logger.info(f"Deduplication: {len(tables)} -> {len(unique)} tables")
         return unique
     
     def _filter_invalid_tables(self, tables: List[Dict], ingest_data: dict) -> List[Dict]:

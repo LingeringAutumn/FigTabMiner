@@ -92,7 +92,12 @@ def _extract_tables_basic(pdf_path: str, ingest_data: dict, capabilities: dict) 
         layout_boxes_by_page = {}
         for page_idx in range(ingest_data["num_pages"]):
             page_img_path = ingest_data["page_images"][page_idx]
-            layout_blocks = layout_detect.detect_layout(page_img_path)
+            
+            # Get page text for enhanced filtering
+            page_text_lines = ingest_data.get("page_text_lines", [[]])[page_idx] if page_idx < len(ingest_data.get("page_text_lines", [])) else []
+            page_text = " ".join([line.get("text", "") for line in page_text_lines]) if page_text_lines else None
+            
+            layout_blocks = layout_detect.detect_layout(page_img_path, page_text)
             table_boxes = [{'bbox': b["bbox"], 'type': 'table', 'score': b.get('score', 0.5)} 
                           for b in layout_blocks if b["type"] == "table"]
             if not table_boxes:

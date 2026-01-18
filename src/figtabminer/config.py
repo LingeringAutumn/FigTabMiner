@@ -208,10 +208,14 @@ BAR_CHART_AXIS_THRESHOLD = BAR_CHART_CONFIG.get("axis_detection_threshold", 0.5)
 BAR_CHART_OCR_LABELS = BAR_CHART_CONFIG.get("enable_ocr_labels", False)
 
 # Text False Positive Filter Configuration (Phase 2: Critical Accuracy Fixes)
-TEXT_FILTER_CONFIDENCE_THRESHOLD = _cfg_float("text_filter_confidence_threshold", default=0.7)
+# 更严格的默认值以减少误报
+TEXT_FILTER_CONFIDENCE_THRESHOLD = _cfg_float("text_filter_confidence_threshold", default=0.75)  # 提高到 0.75
 TEXT_FILTER_ENABLE_TRANSFORMER = _cfg_bool("text_filter_enable_transformer", default=False)
-TEXT_FILTER_TEXT_DENSITY_THRESHOLD = _cfg_float("text_filter_text_density_threshold", default=0.08)
-TEXT_FILTER_MIN_STRUCTURE_SCORE = _cfg_float("text_filter_min_structure_score", default=200)
+TEXT_FILTER_TEXT_DENSITY_THRESHOLD = _cfg_float("text_filter_text_density_threshold", default=0.05)  # 降低到 5%
+TEXT_FILTER_MIN_STRUCTURE_SCORE = _cfg_float("text_filter_min_structure_score", default=300)  # 提高到 300
+TEXT_FILTER_ENABLE_POSITION_HEURISTICS = _cfg_bool("text_filter_enable_position_heuristics", default=True)
+TEXT_FILTER_ENABLE_OCR_PATTERN = _cfg_bool("text_filter_enable_ocr_pattern", default=True)
+TEXT_FILTER_ENABLE_TEXT_LINE_DETECTION = _cfg_bool("text_filter_enable_text_line_detection", default=True)
 
 # arXiv Filter Configuration (Phase 1: Critical Accuracy Fixes)
 ARXIV_FILTER_ENABLE_OCR = _cfg_bool("arxiv_filter_enable_ocr", default=True)

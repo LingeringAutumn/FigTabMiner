@@ -57,7 +57,11 @@ def extract_figures(ingest_data: dict, capabilities: Optional[dict] = None) -> l
         
         # Collect candidates from layout detection
         if use_layout:
-            layout_blocks = layout_detect.detect_layout(page_img_path)
+            # Get page text for enhanced filtering
+            page_text_lines = ingest_data.get("page_text_lines", [[]])[page_idx] if page_idx < len(ingest_data.get("page_text_lines", [])) else []
+            page_text = " ".join([line.get("text", "") for line in page_text_lines]) if page_text_lines else None
+            
+            layout_blocks = layout_detect.detect_layout(page_img_path, page_text)
             for lb in layout_blocks:
                 if lb["type"] == "figure":
                     candidate_boxes.append({
