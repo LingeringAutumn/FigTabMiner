@@ -38,10 +38,13 @@
   
   "table_extraction": {
     "use_enhanced_extractor": true,
+    "enable_table_transformer": false,
+    "table_transformer_confidence": 0.85,
     "enable_visual_detection": true,
     "enable_math_equation_filter": true,
-    "min_grid_lines": 100,
-    "try_multiple_strategies": true
+    "min_grid_lines": 50,
+    "try_multiple_strategies": true,
+    "strict_validation": true
   },
   
   "chart_classification": {
@@ -58,6 +61,41 @@
     "min_bar_height": 10,
     "axis_detection_threshold": 0.5,
     "enable_ocr_labels": false
+  },
+  
+  "v17_detection": {
+    "enable_doclayout": true,
+    "enable_table_transformer": true,
+    "enable_legacy_detectron": false,
+    "doclayout_confidence": 0.35,
+    "table_transformer_confidence": 0.75,
+    "legacy_confidence": 0.5,
+    "fusion_strategy": "weighted_nms",
+    "detector_weights": {
+      "doclayout": 0.4,
+      "table_transformer": 0.4,
+      "legacy": 0.2
+    },
+    "nms_iou_threshold": 0.5,
+    "merge_iou_threshold": 0.3,
+    "merge_distance_threshold": 50,
+    "enable_context_aware_merge": true,
+    "enable_boundary_refinement": true,
+    "min_quality_score": 0.4,
+    "enable_anomaly_detection": true,
+    "quality_weights": {
+      "detection_confidence": 0.30,
+      "content_completeness": 0.25,
+      "boundary_precision": 0.20,
+      "caption_match": 0.15,
+      "position_reasonableness": 0.10
+    },
+    "enable_hierarchical_classification": true,
+    "min_classification_confidence": 0.5,
+    "enable_parallel_detection": true,
+    "enable_model_caching": true,
+    "max_workers": 4,
+    "use_legacy_pipeline": false
   }
 }
 

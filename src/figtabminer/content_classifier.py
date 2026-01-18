@@ -148,17 +148,53 @@ class ContentClassifier:
         height = bbox[3] - bbox[1]
         area = width * height
         
-        if area < 2000:  # Too small
+        if area < 5000:  # Increased from 2000 - too small
             logger.debug(f"Invalid table: too small (area={area})")
             return False
         
         # Check 2: Aspect ratio - tables shouldn't be too extreme
         aspect_ratio = width / height if height > 0 else 0
-        if aspect_ratio > 10 or aspect_ratio < 0.1:
+        if aspect_ratio > 8 or aspect_ratio < 0.15:  # Stricter limits
             logger.debug(f"Invalid table: extreme aspect ratio {aspect_ratio:.2f}")
             return False
         
-        # Check 3: Visual structure
+        # Check 3: Must have actual table data
+        if 'row_count' in item and 'col_count' in item:
+            if item['row_count'] < 2 or item['col_count'] < 2:
+                logger.debug(f"Invalid table: insufficient rows/cols ({item['row_count']}x{item['col_count']})")
+                return False
+        else:
+            # If no table data extracted, it's not a valid table
+            logger.debug(f"Invalid table: no table data extracted")
+            return False
+        
+        # Check 4: Text content - should not be mostly references or author info
+        if text_lines:
+            nearby_text = self._get_nearby_text(bbox, text_lines, distance=20)
+            
+            if nearby_text:
+                # Check for reference patterns
+                ref_patterns = [
+                    r'\[\d+\]',  # [1], [2], etc.
+                    r'\(\d{4}\)',  # (2020), (2021), etc.
+                    r'et al\.',  # et al.
+                    r'@',  # email addresses
+                    r'\.edu',  # academic emails
+                    r'Department of',
+                    r'University',
+                    r'Institute',
+                    r'References',
+                    r'Bibliography'
+                ]
+                
+                ref_count = sum(1 for pattern in ref_patterns 
+                               if re.search(pattern, nearby_text, re.IGNORECASE))
+                
+                if ref_count >= 2:
+                    logger.debug(f"Invalid table: looks like references or author info")
+                    return False
+        
+        # Check 5: Visual structure
         if page_image is not None:
             try:
                 x0, y0, x1, y1 = [int(c) for c in bbox]
@@ -186,18 +222,13 @@ class ContentClassifier:
                     v_count = np.count_nonzero(vertical_lines)
                     
                     # Tables should have both horizontal and vertical lines
-                    if h_count < 100 or v_count < 100:
+                    # Relaxed from 100 to 50 for borderless tables
+                    if h_count < 50 and v_count < 50:
                         logger.debug(f"Invalid table: insufficient grid structure (h={h_count}, v={v_count})")
                         return False
             
             except Exception as e:
                 logger.debug(f"Error in visual validation: {e}")
-        
-        # Check 4: Has table data
-        if 'row_count' in item and 'col_count' in item:
-            if item['row_count'] < 2 or item['col_count'] < 2:
-                logger.debug(f"Invalid table: insufficient rows/cols ({item['row_count']}x{item['col_count']})")
-                return False
         
         return True
     

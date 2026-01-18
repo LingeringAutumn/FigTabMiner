@@ -18,6 +18,14 @@ from . import content_classifier
 
 logger = utils.setup_logging(__name__)
 
+# Try to import Table Transformer detector
+try:
+    from .detectors import table_transformer_detector
+    TABLE_TRANSFORMER_AVAILABLE = table_transformer_detector.is_available()
+except ImportError:
+    TABLE_TRANSFORMER_AVAILABLE = False
+    logger.debug("Table Transformer detector not available")
+
 
 class EnhancedTableExtractor:
     """
@@ -112,6 +120,12 @@ class EnhancedTableExtractor:
     def extract_tables(self, pdf_path: str, ingest_data: dict) -> list:
         """
         Extract tables using multiple strategies.
+        
+        Strategies (in order):
+        1. Layout-guided extraction (DocLayout-YOLO or PubLayNet)
+        2. Table Transformer (specialized for tables)
+        3. pdfplumber with multiple settings
+        4. Visual line detection
         """
         logger.info("Extracting tables with enhanced extractor...")
         
@@ -127,12 +141,26 @@ class EnhancedTableExtractor:
             all_tables.extend(layout_tables)
             logger.info(f"Layout detection found {len(layout_tables)} tables")
         
-        # Strategy 2: pdfplumber with multiple settings
+        # Strategy 2: Table Transformer (NEW!)
+        # Check if enabled in config
+        table_config = config.get_config().get('table_extraction', {})
+        enable_tt = table_config.get('enable_table_transformer', False)
+        
+        if TABLE_TRANSFORMER_AVAILABLE and enable_tt:
+            tt_tables = self._extract_with_table_transformer(pdf_path, ingest_data, output_dir)
+            all_tables.extend(tt_tables)
+            logger.info(f"Table Transformer found {len(tt_tables)} tables")
+        elif TABLE_TRANSFORMER_AVAILABLE and not enable_tt:
+            logger.info("Table Transformer is available but disabled in config")
+        else:
+            logger.debug("Table Transformer not available")
+        
+        # Strategy 3: pdfplumber with multiple settings
         pdfplumber_tables = self._extract_with_pdfplumber_multi(pdf_path, ingest_data, output_dir)
         all_tables.extend(pdfplumber_tables)
         logger.info(f"pdfplumber found {len(pdfplumber_tables)} tables")
         
-        # Strategy 3: Visual line detection
+        # Strategy 4: Visual line detection
         visual_tables = self._extract_with_visual_detection(pdf_path, ingest_data, output_dir)
         all_tables.extend(visual_tables)
         logger.info(f"Visual detection found {len(visual_tables)} tables")
@@ -145,9 +173,32 @@ class EnhancedTableExtractor:
         valid_tables = self._filter_invalid_tables(unique_tables, ingest_data)
         logger.info(f"After filtering: {len(valid_tables)} valid tables")
         
-        # Assign IDs
+        # Assign IDs and rename directories
         for i, table in enumerate(valid_tables, 1):
-            table['item_id'] = f"table_{i:04d}"
+            new_id = f"table_{i:04d}"
+            old_id = table.get('temp_id')
+            
+            if old_id and old_id != new_id:
+                # Rename directory
+                old_dir = output_dir / old_id
+                new_dir = output_dir / new_id
+                
+                if old_dir.exists():
+                    try:
+                        old_dir.rename(new_dir)
+                        
+                        # Update artifacts paths
+                        if 'artifacts' in table:
+                            for key, path in table['artifacts'].items():
+                                table['artifacts'][key] = path.replace(old_id, new_id)
+                    except Exception as e:
+                        logger.warning(f"Failed to rename {old_id} to {new_id}: {e}")
+            
+            table['item_id'] = new_id
+            
+            # Remove temp_id
+            if 'temp_id' in table:
+                del table['temp_id']
         
         return valid_tables
     
@@ -213,6 +264,87 @@ class EnhancedTableExtractor:
         
         return tables
     
+    def _extract_with_table_transformer(self, pdf_path: str, ingest_data: dict, output_dir: Path) -> list:
+        """
+        Extract tables using Table Transformer.
+        
+        Table Transformer is specialized for table detection and works well
+        with borderless tables that pdfplumber might miss.
+        """
+        if not TABLE_TRANSFORMER_AVAILABLE:
+            return []
+        
+        tables = []
+        
+        try:
+            from .detectors.table_transformer_detector import TableTransformerDetector
+            
+            logger.debug("Initializing Table Transformer detector...")
+            detector = TableTransformerDetector()
+            
+            # Process each page
+            for page_idx in range(ingest_data["num_pages"]):
+                page_img_path = ingest_data["page_images"][page_idx]
+                page_w, page_h = ingest_data["page_sizes"][page_idx]
+                zoom = ingest_data["zoom"]
+                
+                # Detect tables
+                detections = detector.detect_tables(page_img_path, conf_threshold=0.85)  # Increased from 0.7
+                
+                if not detections:
+                    continue
+                
+                logger.debug(f"Table Transformer found {len(detections)} tables on page {page_idx}")
+                
+                # Process each detected table
+                with pdfplumber.open(pdf_path) as pdf:
+                    page = pdf.pages[page_idx]
+                    
+                    for det in detections:
+                        bbox_rendered = det["bbox"]  # [x0, y0, x1, y1]
+                        x0, y0, x1, y1 = [int(c) for c in bbox_rendered]
+                        
+                        # Size filter
+                        if (x1 - x0) < config.MIN_TABLE_DIM or (y1 - y0) < config.MIN_TABLE_DIM:
+                            continue
+                        if utils.bbox_area([x0, y0, x1, y1]) < config.MIN_TABLE_AREA:
+                            continue
+                        
+                        # Expand slightly
+                        x0, y0, x1, y1 = utils.expand_bbox(
+                            [x0, y0, x1, y1], config.TABLE_CROP_PAD,
+                            max_w=page_w, max_h=page_h
+                        )
+                        
+                        bbox_pdf = [c / zoom for c in [x0, y0, x1, y1]]
+                        
+                        # Try to extract table data
+                        table_data, strategy_used = self._extract_table_data_multi(page, bbox_pdf)
+                        
+                        if not table_data:
+                            logger.debug(f"No table data extracted from Table Transformer bbox on page {page_idx}")
+                            continue
+                        
+                        # Create table item
+                        table_item = self._create_table_item(
+                            table_data, page_idx, [x0, y0, x1, y1],
+                            ingest_data, output_dir,
+                            source="table_transformer",
+                            strategy=strategy_used,
+                            score=det.get('score', 0.7)
+                        )
+                        
+                        if table_item:
+                            tables.append(table_item)
+            
+            logger.debug(f"Table Transformer extraction completed: {len(tables)} tables")
+            
+        except Exception as e:
+            logger.warning(f"Table Transformer extraction failed: {e}")
+            logger.debug("Traceback:", exc_info=True)
+        
+        return tables
+    
     def _extract_with_pdfplumber_multi(self, pdf_path: str, ingest_data: dict, output_dir: Path) -> list:
         """Extract tables using pdfplumber with multiple settings."""
         tables = []
@@ -225,10 +357,12 @@ class EnhancedTableExtractor:
                 best_strategy = None
                 
                 for settings in self.table_settings_variants:
-                    strategy_name = settings.pop("name")
+                    strategy_name = settings.get("name", "unknown")
+                    # Create a copy without the "name" key for pdfplumber
+                    settings_copy = {k: v for k, v in settings.items() if k != "name"}
                     
                     try:
-                        found_tables = page.find_tables(table_settings=settings)
+                        found_tables = page.find_tables(table_settings=settings_copy)
                         
                         if len(found_tables) > best_count:
                             best_tables = found_tables

@@ -9,8 +9,18 @@ from . import utils
 
 logger = utils.setup_logging(__name__)
 
+# Try to import DocLayout-YOLO detector
+try:
+    from .detectors import doclayout_detector
+    DOCLAYOUT_AVAILABLE = doclayout_detector.is_available()
+except ImportError:
+    DOCLAYOUT_AVAILABLE = False
+    logger.debug("DocLayout-YOLO detector not available")
+
 _MODEL = None
 _MODEL_FAILED = False
+_DOCLAYOUT_DETECTOR = None
+_DOCLAYOUT_FAILED = False
 _CACHE: Dict[str, List[dict]] = {}
 
 
@@ -19,35 +29,94 @@ def get_layout_status() -> dict:
     Get the current status of layout detection capability.
     
     Returns:
-        Dictionary with status information
+        Dictionary with status information including detector types
     """
     status = {
         "available": layout_available(),
-        "model_loaded": _MODEL is not None,
-        "model_failed": _MODEL_FAILED,
+        "doclayout_available": DOCLAYOUT_AVAILABLE,
+        "doclayout_loaded": _DOCLAYOUT_DETECTOR is not None,
+        "doclayout_failed": _DOCLAYOUT_FAILED,
+        "publaynet_available": _publaynet_available(),
+        "publaynet_loaded": _MODEL is not None,
+        "publaynet_failed": _MODEL_FAILED,
         "cache_size": len(_CACHE),
     }
     
-    if status["available"] and not status["model_loaded"] and not status["model_failed"]:
-        status["status"] = "not_initialized"
-    elif status["model_loaded"]:
+    # Determine primary detector
+    if _DOCLAYOUT_DETECTOR is not None:
+        status["primary_detector"] = "doclayout_yolo"
         status["status"] = "ready"
-    elif status["model_failed"]:
-        status["status"] = "failed"
+    elif _MODEL is not None:
+        status["primary_detector"] = "publaynet"
+        status["status"] = "ready"
+    elif status["available"]:
+        status["primary_detector"] = "none"
+        status["status"] = "not_initialized"
     else:
+        status["primary_detector"] = "none"
         status["status"] = "unavailable"
     
     return status
 
 
 def layout_available() -> bool:
+    """Check if any layout detection method is available"""
     if config.LAYOUT_ENABLE in ("0", "false", "no", "n", "off"):
         return False
+    
+    # DocLayout-YOLO is available
+    if DOCLAYOUT_AVAILABLE:
+        return True
+    
+    # PubLayNet is available
+    if _publaynet_available():
+        return True
+    
+    return False
+
+
+def _publaynet_available() -> bool:
+    """Check if PubLayNet (layoutparser + detectron2) is available"""
     if not utils.safe_import("layoutparser"):
         return False
     if not utils.safe_import("detectron2"):
         return False
     return True
+
+
+def _get_doclayout_detector():
+    """
+    Initialize and return the DocLayout-YOLO detector.
+    
+    Returns:
+        Initialized detector or None if initialization fails
+    """
+    global _DOCLAYOUT_DETECTOR
+    global _DOCLAYOUT_FAILED
+    
+    if _DOCLAYOUT_DETECTOR is not None:
+        return _DOCLAYOUT_DETECTOR
+    
+    if _DOCLAYOUT_FAILED:
+        logger.debug("DocLayout-YOLO initialization previously failed, skipping")
+        return None
+    
+    if not DOCLAYOUT_AVAILABLE:
+        logger.debug("DocLayout-YOLO not available")
+        _DOCLAYOUT_FAILED = True
+        return None
+    
+    try:
+        logger.info("Initializing DocLayout-YOLO detector...")
+        from .detectors.doclayout_detector import DocLayoutYOLODetector
+        _DOCLAYOUT_DETECTOR = DocLayoutYOLODetector()
+        logger.info("DocLayout-YOLO detector initialized successfully")
+        return _DOCLAYOUT_DETECTOR
+    except Exception as e:
+        logger.warning(f"DocLayout-YOLO initialization failed: {e}")
+        logger.debug("Traceback:", exc_info=True)
+        _DOCLAYOUT_FAILED = True
+        return None
 
 
 def _patch_layoutparser_config():
@@ -424,6 +493,11 @@ def detect_layout(page_img_path: str) -> List[dict]:
     """
     Detect layout elements (figures and tables) in a page image.
     
+    Uses a fallback strategy:
+    1. Try DocLayout-YOLO (best accuracy, document-specific)
+    2. Fall back to PubLayNet (good accuracy, general purpose)
+    3. Return empty list if both fail
+    
     Args:
         page_img_path: Path to the page image
         
@@ -441,55 +515,87 @@ def detect_layout(page_img_path: str) -> List[dict]:
         _CACHE[page_img_path] = results
         return results
     
-    model = _get_model()
-    if model is None:
-        logger.debug("Layout model not initialized, skipping detection")
-        _CACHE[page_img_path] = results
-        return results
+    # Strategy 1: Try DocLayout-YOLO first (best accuracy)
+    if DOCLAYOUT_AVAILABLE and not _DOCLAYOUT_FAILED:
+        detector = _get_doclayout_detector()
+        if detector is not None:
+            try:
+                logger.debug("Using DocLayout-YOLO for layout detection")
+                detections = detector.detect(page_img_path, conf_threshold=config.LAYOUT_SCORE_THRESH)
+                
+                # Convert to standard format
+                for det in detections:
+                    # Only keep figures and tables
+                    if det["label"] not in ("figure", "table"):
+                        continue
+                    
+                    results.append({
+                        "type": det["label"],
+                        "bbox": det["bbox"],
+                        "score": det["score"],
+                        "detector": "doclayout_yolo"
+                    })
+                
+                if results:
+                    logger.info(f"DocLayout-YOLO found {len(results)} items ({sum(1 for r in results if r['type']=='figure')} figures, {sum(1 for r in results if r['type']=='table')} tables)")
+                    _CACHE[page_img_path] = results
+                    return results
+                else:
+                    logger.debug("DocLayout-YOLO found no figures/tables, trying fallback")
+                    
+            except Exception as e:
+                logger.warning(f"DocLayout-YOLO detection failed: {e}, falling back to PubLayNet")
+                logger.debug("Traceback:", exc_info=True)
     
-    try:
-        import layoutparser as lp
-        import cv2
-        
-        logger.debug(f"Running layout detection on: {page_img_path}")
-        # Use cv2 to read image instead of lp.io.read_image (which may not exist in all versions)
-        image = cv2.imread(page_img_path)
-        if image is None:
-            logger.warning(f"Failed to read image: {page_img_path}")
-            _CACHE[page_img_path] = results
-            return results
-        
-        layout = model.detect(image)
-        
-        logger.debug(f"Detected {len(layout)} layout blocks")
-        
-        for block in layout:
-            block_type = str(block.type).lower()
-            score = float(getattr(block, "score", 1.0))
-            
-            # Filter by score threshold
-            if score < config.LAYOUT_SCORE_THRESH:
-                logger.debug(f"Filtered block {block_type} with score {score:.3f} < {config.LAYOUT_SCORE_THRESH}")
-                continue
-            
-            # Only keep figures and tables
-            if block_type not in ("figure", "table"):
-                logger.debug(f"Skipping block type: {block_type}")
-                continue
-            
-            bbox = _block_to_bbox(block)
-            results.append({
-                "type": block_type,
-                "bbox": bbox,
-                "score": score,
-            })
-            logger.debug(f"Added {block_type} with score {score:.3f}, bbox: {bbox}")
-        
-        logger.info(f"Layout detection found {len(results)} items ({sum(1 for r in results if r['type']=='figure')} figures, {sum(1 for r in results if r['type']=='table')} tables)")
-        
-    except Exception as e:
-        logger.warning(f"Layout detection failed on {page_img_path}: {e}")
-        logger.debug("Traceback:", exc_info=True)
+    # Strategy 2: Fall back to PubLayNet
+    if _publaynet_available():
+        model = _get_model()
+        if model is not None:
+            try:
+                import layoutparser as lp
+                import cv2
+                
+                logger.debug("Using PubLayNet for layout detection (fallback)")
+                image = cv2.imread(page_img_path)
+                if image is None:
+                    logger.warning(f"Failed to read image: {page_img_path}")
+                    _CACHE[page_img_path] = results
+                    return results
+                
+                layout = model.detect(image)
+                
+                logger.debug(f"PubLayNet detected {len(layout)} layout blocks")
+                
+                for block in layout:
+                    block_type = str(block.type).lower()
+                    score = float(getattr(block, "score", 1.0))
+                    
+                    # Filter by score threshold
+                    if score < config.LAYOUT_SCORE_THRESH:
+                        logger.debug(f"Filtered block {block_type} with score {score:.3f} < {config.LAYOUT_SCORE_THRESH}")
+                        continue
+                    
+                    # Only keep figures and tables
+                    if block_type not in ("figure", "table"):
+                        logger.debug(f"Skipping block type: {block_type}")
+                        continue
+                    
+                    bbox = _block_to_bbox(block)
+                    results.append({
+                        "type": block_type,
+                        "bbox": bbox,
+                        "score": score,
+                        "detector": "publaynet"
+                    })
+                    logger.debug(f"Added {block_type} with score {score:.3f}, bbox: {bbox}")
+                
+                logger.info(f"PubLayNet found {len(results)} items ({sum(1 for r in results if r['type']=='figure')} figures, {sum(1 for r in results if r['type']=='table')} tables)")
+                
+            except Exception as e:
+                logger.warning(f"PubLayNet detection failed on {page_img_path}: {e}")
+                logger.debug("Traceback:", exc_info=True)
+    else:
+        logger.debug("PubLayNet not available, no fallback")
     
     _CACHE[page_img_path] = results
     return results

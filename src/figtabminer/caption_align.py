@@ -4,12 +4,60 @@ from . import utils
 
 logger = utils.setup_logging(__name__)
 
+
+def extract_figure_number(text: str) -> int:
+    """
+    Extract figure/table number from caption.
+    
+    Examples:
+        "Figure 1. Caption" -> 1
+        "Fig. 2a. Caption" -> 2
+        "Table 3: Results" -> 3
+    """
+    # Match patterns like "Figure 1", "Fig. 2", "Table 3"
+    match = re.search(r'(?:fig\.?|figure|table|tab\.?)\s*(\d+)', text, re.IGNORECASE)
+    if match:
+        return int(match.group(1))
+    return -1
+
+
+def extract_subfigure_label(text: str) -> str:
+    """
+    Extract subfigure label from caption.
+    
+    Examples:
+        "Figure 1(a). Caption" -> "a"
+        "Fig. 2 (b) Caption" -> "b"
+        "Figure 3a. Caption" -> "a"
+    """
+    # Match patterns like "(a)", "(b)", "a)", "a."
+    patterns = [
+        r'\(([a-z])\)',      # (a)
+        r'\b([a-z])\)',      # a)
+        r'(?:fig\.?|figure)\s*\d+([a-z])\b',  # Figure 1a
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            return match.group(1).lower()
+    
+    return None
+
+
 def align_captions(items: list, ingest_data: dict) -> list:
     """
     Align extracted items (figures/tables) with their captions and snippets.
+    
+    v1.4 improvements:
+    - Figure number matching (Figure 1 -> first figure)
+    - Subfigure label extraction (a, b, c)
+    - Better multi-line caption handling
+    - Direction priority (figures: below, tables: above)
+    
     Modifies items in-place.
     """
-    logger.info("Aligning captions...")
+    logger.info("Aligning captions with enhanced matching...")
     
     # Pre-process text lines for each page to find candidate caption lines
     # Candidate line: starts with "Figure X" or "Table Y"
@@ -24,9 +72,36 @@ def align_captions(items: list, ingest_data: dict) -> list:
         for line_obj in lines:
             text = line_obj["text"].strip()
             if caption_re.match(text):
+                # Extract figure/table number
+                fig_num = extract_figure_number(text)
+                subfig_label = extract_subfigure_label(text)
+                
+                line_obj["figure_number"] = fig_num
+                line_obj["subfigure_label"] = subfig_label
                 candidates.append(line_obj)
         
         caption_candidates_by_page[page_idx] = candidates
+    
+    # Group items by type and page for number matching
+    figures_by_page = {}
+    tables_by_page = {}
+    
+    for item in items:
+        page_idx = item["page_index"]
+        if item["type"] == "figure":
+            if page_idx not in figures_by_page:
+                figures_by_page[page_idx] = []
+            figures_by_page[page_idx].append(item)
+        elif item["type"] == "table":
+            if page_idx not in tables_by_page:
+                tables_by_page[page_idx] = []
+            tables_by_page[page_idx].append(item)
+    
+    # Sort items by position (top to bottom, left to right)
+    for page_idx in figures_by_page:
+        figures_by_page[page_idx].sort(key=lambda x: (x["bbox"][1], x["bbox"][0]) if x["bbox"] else (0, 0))
+    for page_idx in tables_by_page:
+        tables_by_page[page_idx].sort(key=lambda x: (x["bbox"][1], x["bbox"][0]) if x["bbox"] else (0, 0))
 
     # Align
     for item in items:
@@ -43,69 +118,89 @@ def align_captions(items: list, ingest_data: dict) -> list:
                 item["caption"] = best_cand["text"]
                 item["caption_bbox"] = best_cand["bbox"]
                 item["evidence_snippet"] = best_cand["text"]
+                item["subfigure_label"] = best_cand.get("subfigure_label")
             continue
             
         candidates = caption_candidates_by_page.get(page_idx, [])
         if not candidates:
             item["caption"] = "No caption found."
             item["evidence_snippet"] = ""
+            item["subfigure_label"] = None
             continue
-            
-        # Find nearest candidate below the item (for Figures usually) or above (for Tables usually)
-        # But simple distance is often enough if we restrict search window.
-        # Let's compute distance: 
-        #   If candidate is below item: dist = candidate_y0 - item_y1
-        #   If candidate is above item: dist = item_y0 - candidate_y1
         
+        # Determine item index on page (for number matching)
+        if item["type"] == "figure":
+            page_items = figures_by_page.get(page_idx, [])
+        else:
+            page_items = tables_by_page.get(page_idx, [])
+        
+        try:
+            item_index = page_items.index(item)
+        except ValueError:
+            item_index = 0
+        
+        # Find best matching caption
         best_cand = None
-        min_dist = float("inf")
+        min_score = float("inf")
         
         for cand in candidates:
             cand_bbox = cand["bbox"]
             
-            # Check vertical overlap or proximity
-            # Simple metric: center distance or gap distance
-            
-            # Gap distance
+            # 1. Spatial distance
             if cand_bbox[1] > item_bbox[3]: # Candidate is below
-                dist = cand_bbox[1] - item_bbox[3]
+                spatial_dist = cand_bbox[1] - item_bbox[3]
                 direction = "below"
             elif cand_bbox[3] < item_bbox[1]: # Candidate is above
-                dist = item_bbox[1] - cand_bbox[3]
+                spatial_dist = item_bbox[1] - cand_bbox[3]
                 direction = "above"
             else:
-                # Overlap?
-                dist = 0
+                # Overlap
+                spatial_dist = 0
                 direction = "overlap"
-            penalty = 0
+            
+            # 2. Direction penalty
+            direction_penalty = 0
             if item["type"] == "figure" and direction == "above":
-                penalty = config.CAPTION_DIRECTION_PENALTY
+                direction_penalty = config.CAPTION_DIRECTION_PENALTY
             if item["type"] == "table" and direction == "below":
-                penalty = config.CAPTION_DIRECTION_PENALTY
-
-            bonus = 0
+                direction_penalty = config.CAPTION_DIRECTION_PENALTY
+            
+            # 3. Type matching bonus
+            type_bonus = 0
             if item["type"] == "figure" and figure_re.match(cand["text"]):
-                bonus = 30
+                type_bonus = 30
             if item["type"] == "table" and table_re.match(cand["text"]):
-                bonus = 30
-
-            score = dist + penalty - bonus
-            if dist < config.CAPTION_SEARCH_WINDOW and score < min_dist:
-                min_dist = score
+                type_bonus = 30
+            
+            # 4. Number matching bonus (NEW!)
+            number_bonus = 0
+            fig_num = cand.get("figure_number", -1)
+            if fig_num >= 0:
+                # Check if figure number matches item index
+                # Figure 1 should match first figure (index 0)
+                expected_index = fig_num - 1
+                if expected_index == item_index:
+                    number_bonus = 50  # Strong bonus for number match
+                elif abs(expected_index - item_index) <= 1:
+                    number_bonus = 20  # Weak bonus for close match
+            
+            # 5. Calculate final score (lower is better)
+            score = spatial_dist + direction_penalty - type_bonus - number_bonus
+            
+            # Only consider captions within search window
+            if spatial_dist < config.CAPTION_SEARCH_WINDOW and score < min_score:
+                min_score = score
                 best_cand = cand
         
         if best_cand:
             item["caption"] = best_cand["text"]
             item["caption_bbox"] = best_cand["bbox"]
+            item["subfigure_label"] = best_cand.get("subfigure_label")
             
-            # Generate snippet: Get lines surrounding the caption
-            # We iterate through all lines on page to find index of best_cand
+            # Generate snippet: Get lines surrounding the caption (multi-line support)
             all_lines = ingest_data["page_text_lines"][page_idx]
             try:
-                # Identify index by reference equality or content/bbox match
-                # JSON serialization in ingest breaks ref equality if we reloaded.
-                # Let's match by bbox center
-                
+                # Find caption line index
                 c_idx = -1
                 for i, l in enumerate(all_lines):
                     if l["bbox"] == best_cand["bbox"] and l["text"] == best_cand["text"]:
@@ -113,13 +208,20 @@ def align_captions(items: list, ingest_data: dict) -> list:
                         break
                 
                 if c_idx != -1:
+                    # Collect multi-line caption
                     caption_lines = [all_lines[c_idx]]
                     caption_bbox = list(all_lines[c_idx]["bbox"])
                     prev_bbox = all_lines[c_idx]["bbox"]
+                    
+                    # Look for continuation lines
                     for j in range(c_idx + 1, len(all_lines)):
                         line = all_lines[j]
+                        
+                        # Stop if we hit another caption
                         if caption_re.match(line["text"]) and j != c_idx:
                             break
+                        
+                        # Check if line is continuation (small gap)
                         gap = line["bbox"][1] - prev_bbox[3]
                         if gap <= config.CAPTION_CONTINUATION_GAP:
                             caption_lines.append(line)
@@ -131,8 +233,9 @@ def align_captions(items: list, ingest_data: dict) -> list:
                     item["caption"] = " ".join([l["text"] for l in caption_lines]).strip()
                     item["caption_bbox"] = caption_bbox
 
+                    # Extract snippet (context around caption)
                     start = max(0, c_idx - 2)
-                    end = min(len(all_lines), c_idx + 5)
+                    end = min(len(all_lines), c_idx + len(caption_lines) + 3)
                     snippet_lines = all_lines[start:end]
                     item["evidence_snippet"] = "\n".join([l["text"] for l in snippet_lines])
                 else:
@@ -143,5 +246,11 @@ def align_captions(items: list, ingest_data: dict) -> list:
         else:
             item["caption"] = "No matching caption found."
             item["evidence_snippet"] = ""
+            item["subfigure_label"] = None
+    
+    # Log statistics
+    with_caption = len([i for i in items if i.get("caption") and "No" not in i["caption"]])
+    with_subfig = len([i for i in items if i.get("subfigure_label")])
+    logger.info(f"Caption alignment: {with_caption}/{len(items)} items matched, {with_subfig} with subfigure labels")
 
     return items
