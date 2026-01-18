@@ -11,3 +11,4 @@ __pycache__/
 .data
 .tests
 .idea
+.temp_docs
