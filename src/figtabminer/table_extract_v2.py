@@ -240,31 +240,52 @@ class EnhancedTableExtractor:
                     if utils.bbox_area([x0, y0, x1, y1]) < config.MIN_TABLE_AREA:
                         continue
                     
-                    # CRITICAL FIX: SHRINK bbox FIRST to remove surrounding text
-                    # DO NOT expand! Layout detection already gives us a large enough box
-                    page_img_path = ingest_data["page_images"][page_idx]
-                    page_img = cv2.imread(page_img_path)
+                    # DUAL PATH APPROACH:
+                    # Path 1: Expand bbox for data extraction (ensure completeness)
+                    # Path 2: Shrink bbox for preview image (remove surrounding text)
                     
-                    if page_img is not None:
-                        try:
-                            bbox_rendered_shrunk = self._shrink_table_bbox([x0, y0, x1, y1], page_img)
-                            x0, y0, x1, y1 = [int(c) for c in bbox_rendered_shrunk]
-                            logger.info(f"Shrunk layout bbox from {bbox_rendered} to [{x0}, {y0}, {x1}, {y1}]")
-                        except Exception as e:
-                            logger.warning(f"Failed to shrink bbox: {e}, using original")
+                    # Path 1: Expand for data extraction
+                    bbox_expanded = utils.expand_bbox(
+                        [x0, y0, x1, y1], config.TABLE_CROP_PAD,
+                        max_w=page_w, max_h=page_h
+                    )
+                    bbox_pdf_expanded = [c / zoom for c in bbox_expanded]
                     
-                    bbox_pdf = [c / zoom for c in [x0, y0, x1, y1]]
-                    
-                    # Try to extract table data with SHRUNK bbox
-                    table_data, strategy_used = self._extract_table_data_multi(page, bbox_pdf)
+                    # Try to extract table data with EXPANDED bbox
+                    table_data, strategy_used = self._extract_table_data_multi(page, bbox_pdf_expanded)
                     
                     if not table_data:
                         logger.debug(f"No table data extracted from layout bbox on page {page_idx}")
                         continue
                     
-                    # Create table item WITHOUT shrinking again (already shrunk)
-                    table_item = self._create_table_item_no_shrink(
-                        table_data, page_idx, [x0, y0, x1, y1],
+                    # Path 2: Shrink for preview (and validation)
+                    page_img_path = ingest_data["page_images"][page_idx]
+                    page_img = cv2.imread(page_img_path)
+                    
+                    bbox_shrunk = [x0, y0, x1, y1]  # Default to original
+                    if page_img is not None:
+                        try:
+                            bbox_shrunk = self._shrink_table_bbox([x0, y0, x1, y1], page_img)
+                            
+                            # CRITICAL: Validate shrunk bbox
+                            # If shrinking reduced area by more than 70%, the detection is likely wrong
+                            original_area = (x1 - x0) * (y1 - y0)
+                            shrunk_area = (bbox_shrunk[2] - bbox_shrunk[0]) * (bbox_shrunk[3] - bbox_shrunk[1])
+                            shrink_ratio = shrunk_area / original_area if original_area > 0 else 0
+                            
+                            if shrink_ratio < 0.3:
+                                logger.warning(f"Shrunk bbox too much (ratio={shrink_ratio:.1%}), likely false positive, skipping")
+                                continue
+                            
+                            logger.info(f"Shrunk layout bbox from {[x0, y0, x1, y1]} to {bbox_shrunk} (ratio={shrink_ratio:.1%})")
+                        except Exception as e:
+                            logger.warning(f"Failed to shrink bbox: {e}, using original")
+                    
+                    # Create table item with DUAL paths:
+                    # - table_data from expanded bbox
+                    # - preview from shrunk bbox
+                    table_item = self._create_table_item_dual_path(
+                        table_data, page_idx, bbox_shrunk, bbox_expanded,
                         ingest_data, output_dir,
                         source="layout",
                         strategy=strategy_used,
@@ -322,30 +343,45 @@ class EnhancedTableExtractor:
                         if utils.bbox_area([x0, y0, x1, y1]) < config.MIN_TABLE_AREA:
                             continue
                         
-                        # CRITICAL FIX: SHRINK bbox FIRST to remove surrounding text
-                        # DO NOT expand! Table Transformer already gives us a large enough box
-                        page_img = cv2.imread(page_img_path)
+                        # DUAL PATH APPROACH:
+                        # Path 1: Expand for data extraction
+                        bbox_expanded = utils.expand_bbox(
+                            [x0, y0, x1, y1], config.TABLE_CROP_PAD,
+                            max_w=page_w, max_h=page_h
+                        )
+                        bbox_pdf_expanded = [c / zoom for c in bbox_expanded]
                         
-                        if page_img is not None:
-                            try:
-                                bbox_rendered_shrunk = self._shrink_table_bbox([x0, y0, x1, y1], page_img)
-                                x0, y0, x1, y1 = [int(c) for c in bbox_rendered_shrunk]
-                                logger.info(f"Shrunk Table Transformer bbox from {bbox_rendered} to [{x0}, {y0}, {x1}, {y1}]")
-                            except Exception as e:
-                                logger.warning(f"Failed to shrink bbox: {e}, using original")
-                        
-                        bbox_pdf = [c / zoom for c in [x0, y0, x1, y1]]
-                        
-                        # Try to extract table data with SHRUNK bbox
-                        table_data, strategy_used = self._extract_table_data_multi(page, bbox_pdf)
+                        # Extract data with expanded bbox
+                        table_data, strategy_used = self._extract_table_data_multi(page, bbox_pdf_expanded)
                         
                         if not table_data:
                             logger.debug(f"No table data extracted from Table Transformer bbox on page {page_idx}")
                             continue
                         
-                        # Create table item WITHOUT shrinking again (already shrunk)
-                        table_item = self._create_table_item_no_shrink(
-                            table_data, page_idx, [x0, y0, x1, y1],
+                        # Path 2: Shrink for preview
+                        page_img = cv2.imread(page_img_path)
+                        bbox_shrunk = [x0, y0, x1, y1]
+                        
+                        if page_img is not None:
+                            try:
+                                bbox_shrunk = self._shrink_table_bbox([x0, y0, x1, y1], page_img)
+                                
+                                # Validate shrunk bbox
+                                original_area = (x1 - x0) * (y1 - y0)
+                                shrunk_area = (bbox_shrunk[2] - bbox_shrunk[0]) * (bbox_shrunk[3] - bbox_shrunk[1])
+                                shrink_ratio = shrunk_area / original_area if original_area > 0 else 0
+                                
+                                if shrink_ratio < 0.3:
+                                    logger.warning(f"Table Transformer: Shrunk bbox too much (ratio={shrink_ratio:.1%}), likely false positive, skipping")
+                                    continue
+                                
+                                logger.info(f"Shrunk Table Transformer bbox (ratio={shrink_ratio:.1%})")
+                            except Exception as e:
+                                logger.warning(f"Failed to shrink bbox: {e}, using original")
+                        
+                        # Create with dual path
+                        table_item = self._create_table_item_dual_path(
+                            table_data, page_idx, bbox_shrunk, bbox_expanded,
                             ingest_data, output_dir,
                             source="table_transformer",
                             strategy=strategy_used,
@@ -407,42 +443,35 @@ class EnhancedTableExtractor:
                     bbox_pdf = list(t_obj.bbox)
                     bbox_rendered = [c * zoom for c in bbox_pdf]
                     
-                    # CRITICAL FIX: Shrink bbox FIRST, then extract data from shrunk bbox
-                    bbox_rendered_shrunk = bbox_rendered  # Default to original
-                    
-                    if page_img is not None:
-                        try:
-                            bbox_rendered_shrunk = self._shrink_table_bbox(bbox_rendered, page_img)
-                            
-                            # Convert shrunk bbox back to PDF coordinates
-                            bbox_pdf_shrunk = [c / zoom for c in bbox_rendered_shrunk]
-                            
-                            # Re-extract table data from SHRUNK bbox
-                            cropped = page.crop(bbox_pdf_shrunk)
-                            table_data = cropped.extract_table(table_settings={k: v for k, v in self.table_settings_variants[0].items() if k != "name"})
-                            
-                            if not table_data or not any(any(cell for cell in row) for row in table_data):
-                                logger.debug(f"No data in shrunk bbox, trying original bbox")
-                                # Fallback to original bbox
-                                table_data = t_obj.extract()
-                                bbox_rendered_shrunk = bbox_rendered
-                            else:
-                                logger.info(f"Re-extracted table from shrunk bbox: {len(table_data)} rows")
-                            
-                        except Exception as e:
-                            logger.warning(f"Failed to shrink/extract from shrunk bbox: {e}, using original")
-                            table_data = t_obj.extract()
-                            bbox_rendered_shrunk = bbox_rendered
-                    else:
-                        logger.warning(f"Page image not available, cannot shrink bbox")
-                        table_data = t_obj.extract()
+                    # DUAL PATH APPROACH:
+                    # Path 1: Use original bbox for data extraction (pdfplumber already found it)
+                    table_data = t_obj.extract()
                     
                     if not table_data or not any(any(cell for cell in row) for row in table_data):
                         continue
                     
-                    # Create table item with shrunk bbox (don't shrink again in _create_table_item)
-                    table_item = self._create_table_item_no_shrink(
-                        table_data, page_idx, bbox_rendered_shrunk,
+                    # Path 2: Shrink bbox for preview
+                    bbox_shrunk = bbox_rendered
+                    if page_img is not None:
+                        try:
+                            bbox_shrunk = self._shrink_table_bbox(bbox_rendered, page_img)
+                            
+                            # Validate shrunk bbox
+                            original_area = (bbox_rendered[2] - bbox_rendered[0]) * (bbox_rendered[3] - bbox_rendered[1])
+                            shrunk_area = (bbox_shrunk[2] - bbox_shrunk[0]) * (bbox_shrunk[3] - bbox_shrunk[1])
+                            shrink_ratio = shrunk_area / original_area if original_area > 0 else 0
+                            
+                            if shrink_ratio < 0.3:
+                                logger.warning(f"pdfplumber: Shrunk bbox too much (ratio={shrink_ratio:.1%}), likely false positive, skipping")
+                                continue
+                            
+                            logger.info(f"Shrunk pdfplumber bbox (ratio={shrink_ratio:.1%})")
+                        except Exception as e:
+                            logger.warning(f"Failed to shrink bbox: {e}, using original")
+                    
+                    # Create with dual path
+                    table_item = self._create_table_item_dual_path(
+                        table_data, page_idx, bbox_shrunk, bbox_rendered,
                         ingest_data, output_dir,
                         source="pdfplumber",
                         strategy=best_strategy,
@@ -483,31 +512,44 @@ class EnhancedTableExtractor:
                     zoom = ingest_data["zoom"]
                     
                     for bbox_rendered in table_regions:
-                        # CRITICAL FIX: SHRINK bbox FIRST to remove surrounding text
+                        # DUAL PATH APPROACH:
+                        # Path 1: Use detected bbox for data extraction
+                        bbox_pdf = [c / zoom for c in bbox_rendered]
+                        table_data, strategy = self._extract_table_data_multi(page, bbox_pdf)
+                        
+                        if not table_data:
+                            continue
+                        
+                        # Path 2: Shrink for preview
+                        bbox_shrunk = bbox_rendered
                         if page_img is not None:
                             try:
-                                bbox_rendered_shrunk = self._shrink_table_bbox(bbox_rendered, page_img)
-                                logger.info(f"Shrunk visual detection bbox from {bbox_rendered} to {bbox_rendered_shrunk}")
-                                bbox_rendered = bbox_rendered_shrunk
+                                bbox_shrunk = self._shrink_table_bbox(bbox_rendered, page_img)
+                                
+                                # Validate shrunk bbox
+                                original_area = (bbox_rendered[2] - bbox_rendered[0]) * (bbox_rendered[3] - bbox_rendered[1])
+                                shrunk_area = (bbox_shrunk[2] - bbox_shrunk[0]) * (bbox_shrunk[3] - bbox_shrunk[1])
+                                shrink_ratio = shrunk_area / original_area if original_area > 0 else 0
+                                
+                                if shrink_ratio < 0.3:
+                                    logger.warning(f"Visual: Shrunk bbox too much (ratio={shrink_ratio:.1%}), likely false positive, skipping")
+                                    continue
+                                
+                                logger.info(f"Shrunk visual detection bbox (ratio={shrink_ratio:.1%})")
                             except Exception as e:
                                 logger.warning(f"Failed to shrink bbox: {e}, using original")
                         
-                        bbox_pdf = [c / zoom for c in bbox_rendered]
+                        # Create with dual path
+                        table_item = self._create_table_item_dual_path(
+                            table_data, page_idx, bbox_shrunk, bbox_rendered,
+                            ingest_data, output_dir,
+                            source="visual",
+                            strategy=strategy,
+                            score=0.6
+                        )
                         
-                        table_data, strategy = self._extract_table_data_multi(page, bbox_pdf)
-                        
-                        if table_data:
-                            # Use _create_table_item_no_shrink since we already shrunk
-                            table_item = self._create_table_item_no_shrink(
-                                table_data, page_idx, bbox_rendered,
-                                ingest_data, output_dir,
-                                source="visual",
-                                strategy=strategy,
-                                score=0.6
-                            )
-                            
-                            if table_item:
-                                tables.append(table_item)
+                        if table_item:
+                            tables.append(table_item)
             
             except Exception as e:
                 logger.debug(f"Visual detection failed on page {page_idx}: {e}")
@@ -580,6 +622,73 @@ class EnhancedTableExtractor:
                 continue
         
         return None, None
+    
+    def _create_table_item_dual_path(self, table_data: List[List], page_idx: int, 
+                                     bbox_preview: List[float], bbox_data: List[float],
+                                     ingest_data: dict, output_dir: Path, source: str, strategy: str, score: float) -> Optional[Dict]:
+        """
+        Create a table item with DUAL PATH approach:
+        - bbox_preview: Shrunk bbox for preview image (excludes surrounding text)
+        - bbox_data: Expanded bbox used for data extraction (ensures completeness)
+        
+        This ensures:
+        1. CSV data is complete (from expanded bbox)
+        2. Preview image is clean (from shrunk bbox)
+        """
+        try:
+            # Create item directory (temporary ID)
+            temp_id = f"temp_{page_idx}_{int(bbox_preview[0])}_{int(bbox_preview[1])}"
+            item_dir = utils.ensure_dir(output_dir / temp_id)
+            csv_path = item_dir / "table.csv"
+            preview_path = item_dir / "preview.png"
+            
+            # Save CSV (from table_data extracted with expanded bbox)
+            df = pd.DataFrame(table_data)
+            df.to_csv(csv_path, index=False, header=False)
+            
+            # Create preview (from SHRUNK bbox)
+            try:
+                page_img_path = ingest_data["page_images"][page_idx]
+                page_img = cv2.imread(page_img_path)
+                
+                if page_img is not None:
+                    h, w = page_img.shape[:2]
+                    x0, y0, x1, y1 = [int(c) for c in bbox_preview]
+                    x0, y0 = max(0, x0), max(0, y0)
+                    x1, y1 = min(w, x1), min(h, y1)
+                    
+                    if x1 > x0 and y1 > y0:
+                        crop = page_img[y0:y1, x0:x1]
+                        cv2.imwrite(str(preview_path), crop)
+            except Exception as e:
+                logger.debug(f"Failed to create table preview: {e}")
+            
+            # Create item
+            zoom = ingest_data["zoom"]
+            item = {
+                "temp_id": temp_id,
+                "type": "table",
+                "subtype": "table",
+                "page_index": page_idx,
+                "bbox": bbox_preview,  # Use shrunk bbox for display
+                "pdf_bbox": [c / zoom for c in bbox_preview],
+                "data_bbox": bbox_data,  # Store expanded bbox for reference
+                "detection_score": score,
+                "detection_source": source,
+                "extraction_strategy": strategy,
+                "row_count": len(table_data),
+                "col_count": len(table_data[0]) if table_data else 0,
+                "artifacts": {
+                    "table_csv": f"items/{temp_id}/table.csv",
+                    "preview_png": f"items/{temp_id}/preview.png"
+                }
+            }
+            
+            return item
+        
+        except Exception as e:
+            logger.error(f"Error creating table item: {e}")
+            return None
     
     def _create_table_item(self, table_data: List[List], page_idx: int, bbox_rendered: List[float],
                           ingest_data: dict, output_dir: Path, source: str, strategy: str, score: float) -> Optional[Dict]:
@@ -655,20 +764,20 @@ class EnhancedTableExtractor:
             logger.error(f"Error creating table item: {e}")
             return None
     
-    def _shrink_table_bbox(self, bbox: List[float], page_img: np.ndarray, shrink_ratio: float = 0.15) -> List[float]:
+    def _shrink_table_bbox(self, bbox: List[float], page_img: np.ndarray, shrink_ratio: float = 0.08) -> List[float]:
         """
-        VERY AGGRESSIVELY shrink table bounding box to remove surrounding text.
+        Shrink table bounding box to remove surrounding text (BALANCED approach).
         
         Strategy:
         1. Detect table structure (horizontal and vertical lines)
         2. Find the tightest bounding box around the structure
-        3. Add minimal padding
+        3. Add reasonable padding
         4. Fallback to projection-based if structure detection fails
         
         Args:
             bbox: Original bounding box [x0, y0, x1, y1]
             page_img: Page image
-            shrink_ratio: Ratio to shrink (default 15%, very aggressive)
+            shrink_ratio: Ratio to shrink (default 8%, balanced)
             
         Returns:
             Shrunk bounding box
@@ -693,31 +802,31 @@ class EnhancedTableExtractor:
         # Convert to grayscale
         gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) if len(crop.shape) == 3 else crop
         
-        # PASS 1: Structure-based shrinking (detect table lines) - MORE AGGRESSIVE
-        edges = cv2.Canny(gray, 30, 100)  # Lower thresholds to detect more edges
+        # PASS 1: Structure-based shrinking (detect table lines) - BALANCED
+        edges = cv2.Canny(gray, 40, 120)  # Balanced thresholds
         
-        # Detect horizontal and vertical lines with longer kernels
-        h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (60, 1))  # Longer for better line detection
-        v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 60))
+        # Detect horizontal and vertical lines
+        h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (50, 1))  # Balanced kernel
+        v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 50))
         h_lines = cv2.morphologyEx(edges, cv2.MORPH_OPEN, h_kernel, iterations=1)
         v_lines = cv2.morphologyEx(edges, cv2.MORPH_OPEN, v_kernel, iterations=1)
         
         # Combine lines to get table structure
         table_structure = cv2.add(h_lines, v_lines)
         
-        # Dilate to connect nearby lines - MORE AGGRESSIVE
-        dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        # Dilate to connect nearby lines - BALANCED
+        dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
         table_structure = cv2.dilate(table_structure, dilate_kernel, iterations=2)
         
         # Find the bounding box of the table structure
         coords = cv2.findNonZero(table_structure)
         
-        if coords is not None and len(coords) > 50:  # Reduced threshold from 100
+        if coords is not None and len(coords) > 80:  # Balanced threshold
             # Get bounding rect of table structure
             struct_x, struct_y, struct_w, struct_h = cv2.boundingRect(coords)
             
-            # MINIMAL padding - only 10 pixels or 5% of dimension
-            padding = min(10, int(min(width, height) * 0.05))
+            # REASONABLE padding - 15 pixels or 8% of dimension
+            padding = max(15, int(min(width, height) * 0.08))
             
             new_y0 = y0 + max(0, struct_y - padding)
             new_y1 = y0 + min(crop.shape[0], struct_y + struct_h + padding)
@@ -726,15 +835,15 @@ class EnhancedTableExtractor:
             
             # Ensure valid bbox
             if new_x1 > new_x0 and new_y1 > new_y0:
-                # More aggressive: keep at least 30% of original area (reduced from 40%)
+                # BALANCED: keep at least 40% of original area
                 new_area = (new_x1 - new_x0) * (new_y1 - new_y0)
                 old_area = width * height
                 
-                if new_area > old_area * 0.3:
+                if new_area > old_area * 0.4:
                     logger.info(f"Shrunk table bbox (structure-based) from {bbox} to [{new_x0:.0f}, {new_y0:.0f}, {new_x1:.0f}, {new_y1:.0f}] (area: {old_area:.0f} -> {new_area:.0f}, {new_area/old_area:.1%})")
                     return [new_x0, new_y0, new_x1, new_y1]
         
-        # PASS 2: Projection-based shrinking (fallback) - MORE AGGRESSIVE
+        # PASS 2: Projection-based shrinking (fallback) - BALANCED
         _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
         
         # Horizontal projection (sum along x-axis)
@@ -742,9 +851,9 @@ class EnhancedTableExtractor:
         # Vertical projection (sum along y-axis)
         v_projection = np.sum(binary, axis=0)
         
-        # MORE AGGRESSIVE: 35% threshold (increased from 25%)
-        threshold_h = np.max(h_projection) * 0.35
-        threshold_v = np.max(v_projection) * 0.35
+        # BALANCED: 30% threshold
+        threshold_h = np.max(h_projection) * 0.30
+        threshold_v = np.max(v_projection) * 0.30
         
         # Find top boundary (skip empty rows at top)
         top_idx = 0
@@ -774,8 +883,8 @@ class EnhancedTableExtractor:
                 right_idx = i
                 break
         
-        # MINIMAL padding
-        padding = min(10, int(min(width, height) * 0.05))
+        # REASONABLE padding
+        padding = max(15, int(min(width, height) * 0.08))
         
         new_y0 = y0 + max(0, top_idx - padding)
         new_y1 = y0 + min(crop.shape[0], bottom_idx + padding)
@@ -784,11 +893,11 @@ class EnhancedTableExtractor:
         
         # Ensure valid bbox
         if new_x1 > new_x0 and new_y1 > new_y0:
-            # More aggressive: keep at least 30% of original area
+            # BALANCED: keep at least 40% of original area
             new_area = (new_x1 - new_x0) * (new_y1 - new_y0)
             old_area = width * height
             
-            if new_area > old_area * 0.3:
+            if new_area > old_area * 0.4:
                 logger.info(f"Shrunk table bbox (projection-based) from {bbox} to [{new_x0:.0f}, {new_y0:.0f}, {new_x1:.0f}, {new_y1:.0f}] (area: {old_area:.0f} -> {new_area:.0f}, {new_area/old_area:.1%})")
                 return [new_x0, new_y0, new_x1, new_y1]
         
