@@ -10,3 +10,4 @@ __pycache__/
 .kiro
 .data
 .tests
+.idea
