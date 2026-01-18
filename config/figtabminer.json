@@ -96,6 +96,26 @@
     "enable_model_caching": true,
     "max_workers": 4,
     "use_legacy_pipeline": false
-  }
+  },
+  
+  "text_filter_confidence_threshold": 0.7,
+  "text_filter_enable_transformer": false,
+  "text_filter_text_density_threshold": 0.08,
+  "text_filter_min_structure_score": 200,
+  
+  "arxiv_filter_enable_ocr": true,
+  "arxiv_filter_position_threshold": 0.1,
+  "arxiv_filter_area_threshold": 0.05,
+  "arxiv_filter_aspect_ratio_min": 1.5,
+  "arxiv_filter_aspect_ratio_max": 8.0,
+  "arxiv_filter_check_left_margin": true,
+  "arxiv_filter_left_margin_threshold": 0.15,
+  "arxiv_filter_check_rotation": true,
+  
+  "table_enhancer_enable_img2table": true,
+  "table_enhancer_iou_threshold": 0.3,
+  "table_enhancer_min_confidence": 0.5,
+  "table_enhancer_shrink_bbox": true,
+  "table_enhancer_shrink_ratio": 0.05
 }
 

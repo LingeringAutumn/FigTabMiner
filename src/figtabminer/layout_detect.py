@@ -6,6 +6,10 @@ from typing import Dict, List, Optional
 
 from . import config
 from . import utils
+from .text_false_positive_filter import TextFalsePositiveFilter
+from .arxiv_filter import ArxivFilter
+from .table_enhancer import TableEnhancer
+from .models import Detection
 
 logger = utils.setup_logging(__name__)
 
@@ -597,5 +601,204 @@ def detect_layout(page_img_path: str) -> List[dict]:
     else:
         logger.debug("PubLayNet not available, no fallback")
     
+    # Apply filters and enhancers in order:
+    # 1. arXiv filter (remove arXiv false positives)
+    # 2. Text false positive filter (remove text false positives)
+    # 3. Table enhancer (add missed tables)
+    if results:
+        results = _apply_arxiv_filter(results, page_img_path)
+        results = _apply_text_false_positive_filter(results, page_img_path)
+        results = _apply_table_enhancer(results, page_img_path)
+    
     _CACHE[page_img_path] = results
     return results
+
+
+def _apply_table_enhancer(
+    detections: List[dict],
+    image_path: str
+) -> List[dict]:
+    """
+    Apply table enhancer to add missed tables using img2table.
+    
+    Args:
+        detections: List of detection dictionaries
+        image_path: Path to the page image
+        
+    Returns:
+        Enhanced list of detections
+    """
+    # Get enhancer configuration from config
+    enable_img2table = getattr(config, 'TABLE_ENHANCER_ENABLE_IMG2TABLE', True)
+    iou_threshold = getattr(config, 'TABLE_ENHANCER_IOU_THRESHOLD', 0.3)
+    min_confidence = getattr(config, 'TABLE_ENHANCER_MIN_CONFIDENCE', 0.5)
+    shrink_bbox = getattr(config, 'TABLE_ENHANCER_SHRINK_BBOX', True)
+    shrink_ratio = getattr(config, 'TABLE_ENHANCER_SHRINK_RATIO', 0.05)
+    
+    # Convert dict detections to Detection objects
+    detection_objects = []
+    for det in detections:
+        detection_objects.append(Detection(
+            type=det['type'],
+            bbox=det['bbox'],
+            score=det.get('score', 1.0),
+            page_num=0  # Not used in enhancement
+        ))
+    
+    # Create and apply enhancer
+    enhancer = TableEnhancer(
+        iou_threshold=iou_threshold,
+        min_confidence=min_confidence,
+        enable_img2table=enable_img2table,
+        shrink_bbox=shrink_bbox,
+        shrink_ratio=shrink_ratio
+    )
+    
+    enhanced_detections, added_detections = enhancer.enhance(detection_objects, image_path)
+    
+    # Log enhancement results
+    if added_detections:
+        logger.info(f"Table enhancer added {len(added_detections)} detections")
+        for det in added_detections:
+            logger.debug(f"  Added {det.type} at {det.bbox} (score={det.score:.3f})")
+    
+    # Convert back to dict format
+    enhanced_results = []
+    for det in enhanced_detections:
+        # Check if this is a new detection (from enhancer)
+        is_new = det in added_detections
+        detector_name = 'img2table' if is_new else next((d['detector'] for d in detections if d['bbox'] == det.bbox), 'unknown')
+        
+        enhanced_results.append({
+            'type': det.type,
+            'bbox': det.bbox,
+            'score': det.score,
+            'detector': detector_name
+        })
+    
+    return enhanced_results
+
+
+def _apply_arxiv_filter(
+    detections: List[dict],
+    image_path: str
+) -> List[dict]:
+    """
+    Apply arXiv filter to remove arXiv identifiers misdetected as figures.
+    
+    Args:
+        detections: List of detection dictionaries
+        image_path: Path to the page image
+        
+    Returns:
+        Filtered list of detections
+    """
+    # Get filter configuration from config
+    enable_ocr = getattr(config, 'ARXIV_FILTER_ENABLE_OCR', True)
+    position_threshold = getattr(config, 'ARXIV_FILTER_POSITION_THRESHOLD', 0.1)
+    area_threshold = getattr(config, 'ARXIV_FILTER_AREA_THRESHOLD', 0.05)
+    aspect_ratio_min = getattr(config, 'ARXIV_FILTER_ASPECT_RATIO_MIN', 1.5)
+    aspect_ratio_max = getattr(config, 'ARXIV_FILTER_ASPECT_RATIO_MAX', 8.0)
+    check_left_margin = getattr(config, 'ARXIV_FILTER_CHECK_LEFT_MARGIN', True)
+    left_margin_threshold = getattr(config, 'ARXIV_FILTER_LEFT_MARGIN_THRESHOLD', 0.15)
+    check_rotation = getattr(config, 'ARXIV_FILTER_CHECK_ROTATION', True)
+    
+    # Convert dict detections to Detection objects
+    detection_objects = []
+    for det in detections:
+        detection_objects.append(Detection(
+            type=det['type'],
+            bbox=det['bbox'],
+            score=det.get('score', 1.0),
+            page_num=0  # Not used in filtering
+        ))
+    
+    # Create and apply filter
+    arxiv_filter = ArxivFilter(
+        enable_ocr=enable_ocr,
+        position_threshold=position_threshold,
+        area_threshold=area_threshold,
+        aspect_ratio_range=(aspect_ratio_min, aspect_ratio_max),
+        check_left_margin=check_left_margin,
+        left_margin_threshold=left_margin_threshold,
+        check_rotation=check_rotation
+    )
+    
+    filtered_detections, removed_detections = arxiv_filter.filter(detection_objects, image_path)
+    
+    # Log filtering results
+    if removed_detections:
+        logger.info(f"arXiv filter removed {len(removed_detections)} detections")
+        for det in removed_detections:
+            logger.debug(f"  Removed {det.type} at {det.bbox} (score={det.score:.3f})")
+    
+    # Convert back to dict format
+    filtered_results = []
+    for det in filtered_detections:
+        filtered_results.append({
+            'type': det.type,
+            'bbox': det.bbox,
+            'score': det.score,
+            'detector': next((d['detector'] for d in detections if d['bbox'] == det.bbox), 'unknown')
+        })
+    
+    return filtered_results
+
+
+def _apply_text_false_positive_filter(
+    detections: List[dict],
+    image_path: str
+) -> List[dict]:
+    """
+    Apply text false positive filter to remove text paragraphs misdetected as tables.
+    
+    Args:
+        detections: List of detection dictionaries
+        image_path: Path to the page image
+        
+    Returns:
+        Filtered list of detections
+    """
+    # Get filter configuration from config
+    table_confidence_threshold = getattr(config, 'TEXT_FILTER_CONFIDENCE_THRESHOLD', 0.7)
+    enable_transformer = getattr(config, 'TEXT_FILTER_ENABLE_TRANSFORMER', False)
+    text_density_threshold = getattr(config, 'TEXT_FILTER_TEXT_DENSITY_THRESHOLD', 0.08)
+    min_table_structure_score = getattr(config, 'TEXT_FILTER_MIN_STRUCTURE_SCORE', 200)
+    
+    # Convert dict detections to Detection objects
+    detection_objects = []
+    for det in detections:
+        detection_objects.append(Detection(
+            type=det['type'],
+            bbox=det['bbox'],
+            score=det.get('score', 1.0),
+            page_num=0  # Not used in filtering
+        ))
+    
+    # Create and apply filter
+    text_filter = TextFalsePositiveFilter(
+        table_confidence_threshold=table_confidence_threshold,
+        enable_transformer_verification=enable_transformer,
+        text_density_threshold=text_density_threshold,
+        min_table_structure_score=min_table_structure_score
+    )
+    
+    filtered_detections, removed_detections = text_filter.filter(detection_objects, image_path)
+    
+    # Log filtering results
+    if removed_detections:
+        logger.info(f"Text false positive filter removed {len(removed_detections)} detections")
+        for det in removed_detections:
+            logger.debug(f"  Removed {det.type} at {det.bbox} (score={det.score:.3f})")
+    
+    # Convert back to dict format
+    filtered_results = []
+    for det in filtered_detections:
+        filtered_results.append({
+            'type': det.type,
+            'bbox': det.bbox,
+            'score': det.score,
+            'detector': next((d['detector'] for d in detections if d['bbox'] == det.bbox), 'unknown')
+        })
+    
+    return filtered_results

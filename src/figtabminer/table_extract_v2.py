@@ -142,9 +142,8 @@ class EnhancedTableExtractor:
             logger.info(f"Layout detection found {len(layout_tables)} tables")
         
         # Strategy 2: Table Transformer (NEW!)
-        # Check if enabled in config
-        table_config = config.get_config().get('table_extraction', {})
-        enable_tt = table_config.get('enable_table_transformer', False)
+        # Check if enabled in config (use environment variable or default)
+        enable_tt = os.getenv('FIGTABMINER_ENABLE_TABLE_TRANSFORMER', 'false').lower() in ('true', '1', 'yes')
         
         if TABLE_TRANSFORMER_AVAILABLE and enable_tt:
             tt_tables = self._extract_with_table_transformer(pdf_path, ingest_data, output_dir)

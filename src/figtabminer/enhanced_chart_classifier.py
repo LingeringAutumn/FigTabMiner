@@ -104,10 +104,10 @@ class EnhancedChartClassifier:
         self.enable_hierarchical = self.config.get('enable_hierarchical', True)
         self.enable_calibration = self.config.get('enable_calibration', True)
         
-        # 权重配置
-        self.visual_weight = self.config.get('visual_weight', 0.5)
-        self.keyword_weight = self.config.get('keyword_weight', 0.3)
-        self.context_weight = self.config.get('context_weight', 0.2)
+        # 权重配置（v1.7改进：提高关键词权重，降低视觉权重）
+        self.visual_weight = self.config.get('visual_weight', 0.4)  # 从0.5降到0.4
+        self.keyword_weight = self.config.get('keyword_weight', 0.5)  # 从0.3提高到0.5
+        self.context_weight = self.config.get('context_weight', 0.1)  # 从0.2降到0.1
         
         # 置信度校准参数（Platt scaling）
         # 这些参数应该通过训练数据学习，这里使用默认值
@@ -380,28 +380,28 @@ class EnhancedChartClassifier:
         return scores
     
     def _detect_chart_features(self, gray: np.ndarray) -> float:
-        """检测图表特征：坐标轴、网格、数据点"""
+        """检测图表特征：坐标轴、网格、数据点（v1.7改进：更鲁棒）"""
         score = 0.0
         
-        # 检测直线（坐标轴）
-        edges = cv2.Canny(gray, 50, 150)
-        lines = cv2.HoughLinesP(edges, 1, np.pi/180, 50, minLineLength=50, maxLineGap=10)
-        if lines is not None and len(lines) >= 2:
-            score += 0.3
+        # 检测直线（坐标轴）- 降低阈值提高召回率
+        edges = cv2.Canny(gray, 30, 100)  # 从50, 150降低到30, 100
+        lines = cv2.HoughLinesP(edges, 1, np.pi/180, 30, minLineLength=30, maxLineGap=15)  # 降低阈值
+        if lines is not None and len(lines) >= 1:  # 从>=2降低到>=1
+            score += 0.4  # 提高分数
         
         # 检测规则结构（网格）
         h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (40, 1))
         v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 40))
         h_lines = cv2.morphologyEx(edges, cv2.MORPH_OPEN, h_kernel)
         v_lines = cv2.morphologyEx(edges, cv2.MORPH_OPEN, v_kernel)
-        if np.count_nonzero(h_lines) > 100 and np.count_nonzero(v_lines) > 100:
+        if np.count_nonzero(h_lines) > 50 and np.count_nonzero(v_lines) > 50:  # 从100降低到50
             score += 0.3
         
-        # 检测数据区域（非白色区域）
+        # 检测数据区域（非白色区域）- 放宽范围
         _, thresh = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY_INV)
         data_ratio = np.count_nonzero(thresh) / thresh.size
-        if 0.1 < data_ratio < 0.7:
-            score += 0.4
+        if 0.05 < data_ratio < 0.8:  # 从0.1-0.7放宽到0.05-0.8
+            score += 0.6  # 提高分数
         
         return min(1.0, score)
     
