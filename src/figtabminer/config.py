@@ -104,12 +104,33 @@ FIGURE_MERGE_IOU = _cfg_float("figure_merge_iou", default=0.2)
 FIGURE_CROP_PAD = _cfg_int("figure_crop_pad", default=4)
 MIN_FIGURE_INK_RATIO = _cfg_float("figure_min_ink_ratio", default=0.01)
 MIN_TEXT_LINES_FOR_PAGE_SKIP = _cfg_int("figure_min_text_lines_skip", default=6)
+FIGURE_TEXT_FILTER_ENABLE = _cfg_bool("figure_text_filter_enable", default=True)
+FIGURE_TEXT_COVERAGE_THRESHOLD = _cfg_float("figure_text_coverage_threshold", default=0.35)
+FIGURE_TEXT_LINE_MIN_WIDTH_RATIO = _cfg_float("figure_text_line_min_width_ratio", default=0.6)
+FIGURE_TEXT_BAND_MIN_LINES = _cfg_int("figure_text_band_min_lines", default=2)
+FIGURE_TEXT_BAND_MAX_HEIGHT_RATIO = _cfg_float("figure_text_band_max_height_ratio", default=0.25)
+FIGURE_TEXT_BAND_CENTER_MIN = _cfg_float("figure_text_band_center_min", default=0.3)
+FIGURE_TEXT_BAND_CENTER_MAX = _cfg_float("figure_text_band_center_max", default=0.7)
+FIGURE_TEXT_BARRIER_MIN_OVERLAP = _cfg_float("figure_text_barrier_min_overlap", default=0.6)
+FIGURE_PROXIMITY_MERGE_GAP = _cfg_int("figure_proximity_merge_gap", default=16)
+FIGURE_PROXIMITY_ALIGNMENT = _cfg_float("figure_proximity_alignment", default=0.65)
+FIGURE_REFINE_BBOX_ENABLE = _cfg_bool("figure_refine_bbox_enable", default=True)
+FIGURE_SPLIT_TEXT_BAND_ENABLE = _cfg_bool("figure_split_text_band_enable", default=True)
 
 # Table extraction
 MIN_TABLE_AREA = _cfg_int("table_min_area", default=2000)
 MIN_TABLE_DIM = _cfg_int("table_min_dim", default=40)
 TABLE_MERGE_IOU = _cfg_float("table_merge_iou", default=0.2)
 TABLE_CROP_PAD = _cfg_int("table_crop_pad", default=2)
+TABLE_TEXT_REFINE_ENABLE = _cfg_bool("table_text_refine_enable", default=True)
+TABLE_TEXT_REFINE_MIN_LINES = _cfg_int("table_text_refine_min_lines", default=2)
+TABLE_TEXT_REFINE_MIN_WIDTH_RATIO = _cfg_float("table_text_refine_min_width_ratio", default=0.5)
+TABLE_TEXT_REFINE_PADDING = _cfg_int("table_text_refine_padding", default=8)
+TABLE_TEXT_REFINE_MIN_AREA_RATIO = _cfg_float("table_text_refine_min_area_ratio", default=0.4)
+TABLE_THREE_LINE_DETECT_ENABLE = _cfg_bool("table_three_line_detect_enable", default=True)
+TABLE_THREE_LINE_MIN_LINE_LENGTH_RATIO = _cfg_float("table_three_line_min_line_length_ratio", default=0.3)
+TABLE_THREE_LINE_MIN_LINES = _cfg_int("table_three_line_min_lines", default=2)
+TABLE_THREE_LINE_MAX_LINES = _cfg_int("table_three_line_max_lines", default=8)
 
 # Table extraction settings for pdfplumber
 TABLE_SETTINGS_LINE = {
@@ -233,3 +254,13 @@ TABLE_ENHANCER_IOU_THRESHOLD = _cfg_float("table_enhancer_iou_threshold", defaul
 TABLE_ENHANCER_MIN_CONFIDENCE = _cfg_float("table_enhancer_min_confidence", default=0.5)
 TABLE_ENHANCER_SHRINK_BBOX = _cfg_bool("table_enhancer_shrink_bbox", default=True)
 TABLE_ENHANCER_SHRINK_RATIO = _cfg_float("table_enhancer_shrink_ratio", default=0.05)
+
+# Table Extraction Configuration
+TABLE_EXTRACTION_CONFIG = _cfg_value("table_extraction", default={})
+if not isinstance(TABLE_EXTRACTION_CONFIG, dict):
+    TABLE_EXTRACTION_CONFIG = {}
+
+TABLE_EXTRACTION_USE_ENHANCED = TABLE_EXTRACTION_CONFIG.get("use_enhanced_extractor", True)
+TABLE_EXTRACTION_ENABLE_TABLE_TRANSFORMER = TABLE_EXTRACTION_CONFIG.get("enable_table_transformer", False)
+TABLE_EXTRACTION_TABLE_TRANSFORMER_CONFIDENCE = TABLE_EXTRACTION_CONFIG.get("table_transformer_confidence", 0.85)
+TABLE_EXTRACTION_ENABLE_VISUAL_DETECTION = TABLE_EXTRACTION_CONFIG.get("enable_visual_detection", True)

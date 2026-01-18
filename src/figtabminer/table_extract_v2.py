@@ -117,6 +117,59 @@ class EnhancedTableExtractor:
                 "explicit_horizontal_lines": [],
             }
         ]
+
+    def _build_caption_candidates(self, text_lines: List[Dict]) -> List[Dict]:
+        if not text_lines:
+            return []
+        import re
+        caption_re = re.compile(r"^\s*(fig\.?|figure|table|tab\.?|scheme|chart|图|表)\b", re.IGNORECASE)
+        figure_re = re.compile(r"^\s*(fig\.?|figure|scheme|chart|图)\b", re.IGNORECASE)
+        table_re = re.compile(r"^\s*(table|tab\.?|表)\b", re.IGNORECASE)
+        candidates = []
+        for line in text_lines:
+            text = line.get("text", "").strip()
+            if not text or not caption_re.match(text):
+                continue
+            kind = None
+            if figure_re.match(text):
+                kind = "figure"
+            elif table_re.match(text):
+                kind = "table"
+            if kind:
+                candidates.append({"bbox": line["bbox"], "kind": kind, "text": text})
+        return candidates
+
+    def _nearest_caption_kind(self, bbox: List[float], candidates: List[Dict], prefer_kind: str) -> Tuple[Optional[str], float]:
+        if not candidates:
+            return None, float("inf")
+        best_kind = None
+        best_score = float("inf")
+        best_dist = float("inf")
+        for cand in candidates:
+            cand_bbox = cand["bbox"]
+            if cand_bbox[1] > bbox[3]:
+                dist = cand_bbox[1] - bbox[3]
+                direction = "below"
+            elif cand_bbox[3] < bbox[1]:
+                dist = bbox[1] - cand_bbox[3]
+                direction = "above"
+            else:
+                dist = 0
+                direction = "overlap"
+            score = dist
+            if prefer_kind == "figure" and direction == "above":
+                score += config.CAPTION_DIRECTION_PENALTY
+            if prefer_kind == "table" and direction == "below":
+                score += config.CAPTION_DIRECTION_PENALTY
+            if utils.bbox_overlap_ratio(bbox, cand_bbox) < 0.1:
+                score += 50
+            if score < best_score:
+                best_score = score
+                best_kind = cand["kind"]
+                best_dist = dist
+        if best_dist > config.CAPTION_SEARCH_WINDOW:
+            return None, float("inf")
+        return best_kind, best_dist
     
     def extract_tables(self, pdf_path: str, ingest_data: dict) -> list:
         """
@@ -142,9 +195,10 @@ class EnhancedTableExtractor:
             all_tables.extend(layout_tables)
             logger.info(f"Layout detection found {len(layout_tables)} tables")
         
-        # Strategy 2: Table Transformer (NEW!)
-        # Check if enabled in config (use environment variable or default)
-        enable_tt = os.getenv('FIGTABMINER_ENABLE_TABLE_TRANSFORMER', 'false').lower() in ('true', '1', 'yes')
+        # Strategy 2: Table Transformer
+        enable_tt = config.TABLE_EXTRACTION_ENABLE_TABLE_TRANSFORMER
+        if "FIGTABMINER_ENABLE_TABLE_TRANSFORMER" in os.environ:
+            enable_tt = os.getenv('FIGTABMINER_ENABLE_TABLE_TRANSFORMER', 'false').lower() in ('true', '1', 'yes')
         
         if TABLE_TRANSFORMER_AVAILABLE and enable_tt:
             tt_tables = self._extract_with_table_transformer(pdf_path, ingest_data, output_dir)
@@ -161,9 +215,10 @@ class EnhancedTableExtractor:
         logger.info(f"pdfplumber found {len(pdfplumber_tables)} tables")
         
         # Strategy 4: Visual line detection
-        visual_tables = self._extract_with_visual_detection(pdf_path, ingest_data, output_dir)
-        all_tables.extend(visual_tables)
-        logger.info(f"Visual detection found {len(visual_tables)} tables")
+        if config.TABLE_EXTRACTION_ENABLE_VISUAL_DETECTION:
+            visual_tables = self._extract_with_visual_detection(pdf_path, ingest_data, output_dir)
+            all_tables.extend(visual_tables)
+            logger.info(f"Visual detection found {len(visual_tables)} tables")
         
         # Deduplicate tables
         unique_tables = self._deduplicate_tables(all_tables)
@@ -213,10 +268,20 @@ class EnhancedTableExtractor:
             # Get page text for enhanced filtering
             page_text_lines = ingest_data.get("page_text_lines", [[]])[page_idx] if page_idx < len(ingest_data.get("page_text_lines", [])) else []
             page_text = " ".join([line.get("text", "") for line in page_text_lines]) if page_text_lines else None
+            caption_candidates = self._build_caption_candidates(page_text_lines)
             
             layout_blocks = layout_detect.detect_layout(page_img_path, page_text)
-            table_boxes = [{'bbox': b["bbox"], 'type': 'table', 'score': b.get('score', 0.5)} 
-                          for b in layout_blocks if b["type"] == "table"]
+            table_boxes = []
+            for b in layout_blocks:
+                if b["type"] == "table":
+                    kind, dist = self._nearest_caption_kind(b["bbox"], caption_candidates, prefer_kind="table")
+                    if kind == "figure" and dist < config.CAPTION_SEARCH_WINDOW * 0.7:
+                        continue
+                    table_boxes.append({'bbox': b["bbox"], 'type': 'table', 'score': b.get('score', 0.5)})
+                elif b["type"] == "figure":
+                    kind, dist = self._nearest_caption_kind(b["bbox"], caption_candidates, prefer_kind="table")
+                    if kind == "table" and dist < config.CAPTION_SEARCH_WINDOW * 0.7:
+                        table_boxes.append({'bbox': b["bbox"], 'type': 'table', 'score': b.get('score', 0.5)})
             if table_boxes:
                 table_boxes = self.merger._merge_by_overlap(table_boxes)
                 layout_boxes_by_page[page_idx] = table_boxes
@@ -229,6 +294,8 @@ class EnhancedTableExtractor:
                 page = pdf.pages[page_idx]
                 page_w, page_h = ingest_data["page_sizes"][page_idx]
                 zoom = ingest_data["zoom"]
+                text_lines = ingest_data.get("page_text_lines", [[]])[page_idx] if page_idx < len(ingest_data.get("page_text_lines", [])) else []
+                caption_candidates = self._build_caption_candidates(text_lines)
                 
                 for box_dict in table_boxes:
                     bbox_rendered = box_dict['bbox']
@@ -265,7 +332,7 @@ class EnhancedTableExtractor:
                     bbox_shrunk = [x0, y0, x1, y1]  # Default to original
                     if page_img is not None:
                         try:
-                            bbox_shrunk = self._shrink_table_bbox([x0, y0, x1, y1], page_img)
+                            bbox_shrunk = self._shrink_table_bbox([x0, y0, x1, y1], page_img, text_lines)
                             
                             # CRITICAL: Validate shrunk bbox
                             # If shrinking reduced area by more than 70%, the detection is likely wrong
@@ -320,9 +387,14 @@ class EnhancedTableExtractor:
                 page_img_path = ingest_data["page_images"][page_idx]
                 page_w, page_h = ingest_data["page_sizes"][page_idx]
                 zoom = ingest_data["zoom"]
+                text_lines = ingest_data.get("page_text_lines", [[]])[page_idx] if page_idx < len(ingest_data.get("page_text_lines", [])) else []
+                caption_candidates = self._build_caption_candidates(text_lines)
                 
                 # Detect tables
-                detections = detector.detect_tables(page_img_path, conf_threshold=0.85)  # Increased from 0.7
+                detections = detector.detect_tables(
+                    page_img_path,
+                    conf_threshold=config.TABLE_EXTRACTION_TABLE_TRANSFORMER_CONFIDENCE
+                )
                 
                 if not detections:
                     continue
@@ -336,6 +408,9 @@ class EnhancedTableExtractor:
                     for det in detections:
                         bbox_rendered = det["bbox"]  # [x0, y0, x1, y1]
                         x0, y0, x1, y1 = [int(c) for c in bbox_rendered]
+                        kind, dist = self._nearest_caption_kind(bbox_rendered, caption_candidates, prefer_kind="table")
+                        if kind == "figure" and dist < config.CAPTION_SEARCH_WINDOW * 0.7:
+                            continue
                         
                         # Size filter
                         if (x1 - x0) < config.MIN_TABLE_DIM or (y1 - y0) < config.MIN_TABLE_DIM:
@@ -364,7 +439,7 @@ class EnhancedTableExtractor:
                         
                         if page_img is not None:
                             try:
-                                bbox_shrunk = self._shrink_table_bbox([x0, y0, x1, y1], page_img)
+                                bbox_shrunk = self._shrink_table_bbox([x0, y0, x1, y1], page_img, text_lines)
                                 
                                 # Validate shrunk bbox
                                 original_area = (x1 - x0) * (y1 - y0)
@@ -438,10 +513,14 @@ class EnhancedTableExtractor:
                 # Load page image for bbox shrinking
                 page_img_path = ingest_data["page_images"][page_idx]
                 page_img = cv2.imread(page_img_path)
+                text_lines = ingest_data.get("page_text_lines", [[]])[page_idx] if page_idx < len(ingest_data.get("page_text_lines", [])) else []
                 
                 for t_obj in best_tables:
                     bbox_pdf = list(t_obj.bbox)
                     bbox_rendered = [c * zoom for c in bbox_pdf]
+                    kind, dist = self._nearest_caption_kind(bbox_rendered, caption_candidates, prefer_kind="table")
+                    if kind == "figure" and dist < config.CAPTION_SEARCH_WINDOW * 0.7:
+                        continue
                     
                     # DUAL PATH APPROACH:
                     # Path 1: Use original bbox for data extraction (pdfplumber already found it)
@@ -454,7 +533,7 @@ class EnhancedTableExtractor:
                     bbox_shrunk = bbox_rendered
                     if page_img is not None:
                         try:
-                            bbox_shrunk = self._shrink_table_bbox(bbox_rendered, page_img)
+                            bbox_shrunk = self._shrink_table_bbox(bbox_rendered, page_img, text_lines)
                             
                             # Validate shrunk bbox
                             original_area = (bbox_rendered[2] - bbox_rendered[0]) * (bbox_rendered[3] - bbox_rendered[1])
@@ -498,6 +577,9 @@ class EnhancedTableExtractor:
                 if page_img is None:
                     continue
                 
+                text_lines = ingest_data.get("page_text_lines", [[]])[page_idx] if page_idx < len(ingest_data.get("page_text_lines", [])) else []
+                caption_candidates = self._build_caption_candidates(text_lines)
+
                 # Detect table regions using lines
                 table_regions = self._detect_table_regions_visual(page_img)
                 
@@ -512,6 +594,9 @@ class EnhancedTableExtractor:
                     zoom = ingest_data["zoom"]
                     
                     for bbox_rendered in table_regions:
+                        kind, dist = self._nearest_caption_kind(bbox_rendered, caption_candidates, prefer_kind="table")
+                        if kind == "figure" and dist < config.CAPTION_SEARCH_WINDOW * 0.7:
+                            continue
                         # DUAL PATH APPROACH:
                         # Path 1: Use detected bbox for data extraction
                         bbox_pdf = [c / zoom for c in bbox_rendered]
@@ -524,7 +609,7 @@ class EnhancedTableExtractor:
                         bbox_shrunk = bbox_rendered
                         if page_img is not None:
                             try:
-                                bbox_shrunk = self._shrink_table_bbox(bbox_rendered, page_img)
+                                bbox_shrunk = self._shrink_table_bbox(bbox_rendered, page_img, text_lines)
                                 
                                 # Validate shrunk bbox
                                 original_area = (bbox_rendered[2] - bbox_rendered[0]) * (bbox_rendered[3] - bbox_rendered[1])
@@ -595,7 +680,84 @@ class EnhancedTableExtractor:
                 continue
             
             regions.append([float(x), float(y), float(x + w), float(y + h)])
-        
+
+        # Additional pass: detect three-line tables (horizontal lines only)
+        if config.TABLE_THREE_LINE_DETECT_ENABLE:
+            h_regions = self._detect_three_line_tables(gray)
+            regions.extend(h_regions)
+
+        return regions
+
+    def _detect_three_line_tables(self, gray: np.ndarray) -> List[List[float]]:
+        """
+        Detect three-line (or two-line) tables using horizontal line clustering.
+        """
+        h, w = gray.shape[:2]
+        edges = cv2.Canny(gray, 30, 100)
+        min_line_length = int(w * config.TABLE_THREE_LINE_MIN_LINE_LENGTH_RATIO)
+        lines = cv2.HoughLinesP(
+            edges, 1, np.pi / 180, threshold=50,
+            minLineLength=max(30, min_line_length), maxLineGap=10
+        )
+        if lines is None:
+            return []
+
+        # Collect horizontal lines
+        h_lines = []
+        for line in lines:
+            x1, y1, x2, y2 = line[0]
+            if abs(y2 - y1) <= 3:  # near-horizontal
+                length = abs(x2 - x1)
+                if length >= min_line_length:
+                    y = int((y1 + y2) / 2)
+                    h_lines.append((min(x1, x2), y, max(x1, x2)))
+
+        if not h_lines:
+            return []
+
+        # Cluster lines by y
+        h_lines.sort(key=lambda l: l[1])
+        clusters = []
+        current = [h_lines[0]]
+        for line in h_lines[1:]:
+            if abs(line[1] - current[-1][1]) <= 6:
+                current.append(line)
+            else:
+                clusters.append(current)
+                current = [line]
+        clusters.append(current)
+
+        # Split clusters into groups by large vertical gaps (multiple tables on one page).
+        centers = [int(sum(l[1] for l in cluster) / len(cluster)) for cluster in clusters]
+        groups = []
+        current = [clusters[0]]
+        gap_threshold = max(15, int(h * 0.08))
+        for idx in range(1, len(clusters)):
+            if centers[idx] - centers[idx - 1] > gap_threshold:
+                groups.append(current)
+                current = [clusters[idx]]
+            else:
+                current.append(clusters[idx])
+        groups.append(current)
+
+        regions = []
+        for group in groups:
+            if not (config.TABLE_THREE_LINE_MIN_LINES <= len(group) <= config.TABLE_THREE_LINE_MAX_LINES):
+                continue
+            ys = [int(sum(l[1] for l in cluster) / len(cluster)) for cluster in group]
+            x0 = min(min(l[0] for l in cluster) for cluster in group)
+            x1 = max(max(l[2] for l in cluster) for cluster in group)
+            y0 = min(ys)
+            y1 = max(ys)
+            pad = max(10, int((y1 - y0) * 0.25))
+            bbox = [
+                float(max(0, x0 - pad)),
+                float(max(0, y0 - pad)),
+                float(min(w, x1 + pad)),
+                float(min(h, y1 + pad))
+            ]
+            regions.append(bbox)
+
         return regions
     
     def _extract_table_data_multi(self, page, bbox_pdf: List[float]) -> Tuple[Optional[List[List]], Optional[str]]:
@@ -764,7 +926,104 @@ class EnhancedTableExtractor:
             logger.error(f"Error creating table item: {e}")
             return None
     
-    def _shrink_table_bbox(self, bbox: List[float], page_img: np.ndarray, shrink_ratio: float = 0.08) -> List[float]:
+    def _refine_bbox_with_text_lines(self, bbox: List[float], text_lines: List[Dict]) -> List[float]:
+        """
+        Refine bbox using clustered text lines to avoid caption/body text leakage.
+        """
+        if not text_lines:
+            return bbox
+        import re
+        caption_re = re.compile(r"^\s*(fig\.?|figure|table|tab\.?|scheme|chart|图|表)\b", re.IGNORECASE)
+        footnote_re = re.compile(r"^\s*(note|notes|footnote|注|备注)\b", re.IGNORECASE)
+
+        x0, y0, x1, y1 = bbox
+        width = x1 - x0
+        height = y1 - y0
+        if width <= 0 or height <= 0:
+            return bbox
+
+        # Collect lines inside bbox with sufficient width coverage.
+        candidates = []
+        for line in text_lines:
+            lb = line.get("bbox")
+            if not lb:
+                continue
+            text = line.get("text", "").strip()
+            if text and (caption_re.match(text) or footnote_re.match(text)):
+                continue
+            if lb[2] <= x0 or lb[0] >= x1 or lb[3] <= y0 or lb[1] >= y1:
+                continue
+            line_width = lb[2] - lb[0]
+            if line_width / max(1.0, width) < config.TABLE_TEXT_REFINE_MIN_WIDTH_RATIO:
+                continue
+            candidates.append(lb)
+
+        if len(candidates) < config.TABLE_TEXT_REFINE_MIN_LINES:
+            return bbox
+
+        candidates.sort(key=lambda b: b[1])
+        heights = [b[3] - b[1] for b in candidates]
+        median_h = sorted(heights)[len(heights) // 2]
+        gap_threshold = max(10, int(median_h * 1.6))
+
+        # Remove isolated top/bottom lines separated by large gaps.
+        def _trim_isolated(lines):
+            if len(lines) <= config.TABLE_TEXT_REFINE_MIN_LINES:
+                return lines
+            trimmed = lines[:]
+            if len(trimmed) >= 2:
+                top_gap = trimmed[1][1] - trimmed[0][3]
+                if top_gap > gap_threshold * 2:
+                    trimmed = trimmed[1:]
+            if len(trimmed) >= 2:
+                bottom_gap = trimmed[-1][1] - trimmed[-2][3]
+                if bottom_gap > gap_threshold * 2:
+                    trimmed = trimmed[:-1]
+            return trimmed
+
+        candidates = _trim_isolated(candidates)
+        if len(candidates) < config.TABLE_TEXT_REFINE_MIN_LINES:
+            return bbox
+
+        clusters = []
+        current = [candidates[0]]
+        for line in candidates[1:]:
+            if line[1] - current[-1][3] <= gap_threshold:
+                current.append(line)
+            else:
+                clusters.append(current)
+                current = [line]
+        clusters.append(current)
+
+        # Pick the cluster with most lines.
+        best = max(clusters, key=len)
+        if len(best) < config.TABLE_TEXT_REFINE_MIN_LINES:
+            return bbox
+
+        nx0 = min(l[0] for l in best)
+        ny0 = min(l[1] for l in best)
+        nx1 = max(l[2] for l in best)
+        ny1 = max(l[3] for l in best)
+
+        pad = config.TABLE_TEXT_REFINE_PADDING
+        new_bbox = [
+            max(x0, nx0 - pad),
+            max(y0, ny0 - pad),
+            min(x1, nx1 + pad),
+            min(y1, ny1 + pad),
+        ]
+
+        new_area = (new_bbox[2] - new_bbox[0]) * (new_bbox[3] - new_bbox[1])
+        old_area = width * height
+        if old_area <= 0:
+            return bbox
+        if new_area >= old_area * config.TABLE_TEXT_REFINE_MIN_AREA_RATIO:
+            return new_bbox
+        return bbox
+
+    def _shrink_table_bbox(self, bbox: List[float], page_img: np.ndarray,
+                           text_lines: Optional[List[Dict]] = None,
+                           shrink_ratio: float = 0.08) -> List[float]:
         """
         Shrink table bounding box to remove surrounding text (BALANCED approach).
         
@@ -839,9 +1098,12 @@ class EnhancedTableExtractor:
                 new_area = (new_x1 - new_x0) * (new_y1 - new_y0)
                 old_area = width * height
                 
-                if new_area > old_area * 0.4:
-                    logger.info(f"Shrunk table bbox (structure-based) from {bbox} to [{new_x0:.0f}, {new_y0:.0f}, {new_x1:.0f}, {new_y1:.0f}] (area: {old_area:.0f} -> {new_area:.0f}, {new_area/old_area:.1%})")
-                    return [new_x0, new_y0, new_x1, new_y1]
+            if new_area > old_area * 0.4:
+                candidate = [new_x0, new_y0, new_x1, new_y1]
+                if text_lines and config.TABLE_TEXT_REFINE_ENABLE:
+                    candidate = self._refine_bbox_with_text_lines(candidate, text_lines)
+                logger.info(f"Shrunk table bbox (structure-based) from {bbox} to [{candidate[0]:.0f}, {candidate[1]:.0f}, {candidate[2]:.0f}, {candidate[3]:.0f}] (area: {old_area:.0f} -> {new_area:.0f}, {new_area/old_area:.1%})")
+                return candidate
         
         # PASS 2: Projection-based shrinking (fallback) - BALANCED
         _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
@@ -898,9 +1160,16 @@ class EnhancedTableExtractor:
             old_area = width * height
             
             if new_area > old_area * 0.4:
-                logger.info(f"Shrunk table bbox (projection-based) from {bbox} to [{new_x0:.0f}, {new_y0:.0f}, {new_x1:.0f}, {new_y1:.0f}] (area: {old_area:.0f} -> {new_area:.0f}, {new_area/old_area:.1%})")
-                return [new_x0, new_y0, new_x1, new_y1]
+                candidate = [new_x0, new_y0, new_x1, new_y1]
+                if text_lines and config.TABLE_TEXT_REFINE_ENABLE:
+                    candidate = self._refine_bbox_with_text_lines(candidate, text_lines)
+                logger.info(f"Shrunk table bbox (projection-based) from {bbox} to [{candidate[0]:.0f}, {candidate[1]:.0f}, {candidate[2]:.0f}, {candidate[3]:.0f}] (area: {old_area:.0f} -> {new_area:.0f}, {new_area/old_area:.1%})")
+                return candidate
         
+        if text_lines and config.TABLE_TEXT_REFINE_ENABLE:
+            refined = self._refine_bbox_with_text_lines(bbox, text_lines)
+            if refined != bbox:
+                return refined
         logger.warning(f"Could not shrink table bbox {bbox} - keeping original")
         return bbox
     

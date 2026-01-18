@@ -12,12 +12,50 @@ except ImportError:
     CHART_CLASSIFIER_AVAILABLE = False
 
 try:
+    from . import enhanced_chart_classifier
+    ENHANCED_CHART_CLASSIFIER_AVAILABLE = True
+except ImportError:
+    ENHANCED_CHART_CLASSIFIER_AVAILABLE = False
+
+try:
+    from . import enhanced_ai_analyzer
+    ENHANCED_AI_ANALYZER_AVAILABLE = True
+except ImportError:
+    ENHANCED_AI_ANALYZER_AVAILABLE = False
+
+try:
     from . import bar_chart_digitizer
     BAR_DIGITIZER_AVAILABLE = True
 except ImportError:
     BAR_DIGITIZER_AVAILABLE = False
 
 logger = utils.setup_logging(__name__)
+
+
+def _analyze_table_structure(preview_path: str) -> dict:
+    try:
+        import cv2
+        import numpy as np
+        img = cv2.imread(preview_path)
+        if img is None:
+            return {}
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        edges = cv2.Canny(gray, 50, 150)
+        h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (40, 1))
+        v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 40))
+        h_lines = cv2.morphologyEx(edges, cv2.MORPH_OPEN, h_kernel)
+        v_lines = cv2.morphologyEx(edges, cv2.MORPH_OPEN, v_kernel)
+        h_count = int(np.count_nonzero(h_lines))
+        v_count = int(np.count_nonzero(v_lines))
+        is_three_line = h_count > 100 and v_count < 60
+        return {
+            "horizontal_line_pixels": h_count,
+            "vertical_line_pixels": v_count,
+            "has_grid": h_count > 100 and v_count > 100,
+            "is_three_line_table": is_three_line,
+        }
+    except Exception:
+        return {}
 
 def detect_capabilities() -> dict:
     """Detect available optional dependencies."""
@@ -148,6 +186,20 @@ def enrich_items_with_ai(items: list, ingest_data: dict, capabilities: dict) -> 
             logger.error(f"Failed to init EasyOCR: {e}")
             capabilities["ocr"] = False
 
+    enhanced_classifier = None
+    if ENHANCED_CHART_CLASSIFIER_AVAILABLE and config.CHART_CLASSIFICATION_USE_ENHANCED:
+        chart_config = {
+            'enable_visual_analysis': config.CHART_CLASSIFICATION_VISUAL,
+            'visual_weight': config.CHART_CLASSIFICATION_VISUAL_WEIGHT,
+            'keyword_weight': config.CHART_CLASSIFICATION_KEYWORD_WEIGHT,
+            'context_weight': 0.1
+        }
+        enhanced_classifier = enhanced_chart_classifier.EnhancedChartClassifier(chart_config)
+
+    enhanced_analyzer = None
+    if ENHANCED_AI_ANALYZER_AVAILABLE:
+        enhanced_analyzer = enhanced_ai_analyzer.EnhancedAIAnalyzer()
+
     for item in items:
         ai_data = {
             "subtype": "unknown",
@@ -191,13 +243,33 @@ def enrich_items_with_ai(items: list, ingest_data: dict, capabilities: dict) -> 
         if item["type"] == "figure":
             full_img_path = config.OUTPUT_DIR / ingest_data["doc_id"] / item["artifacts"]["preview_png"]
             
-            # v1.3: Use enhanced classifier if available
-            use_enhanced = (
-                CHART_CLASSIFIER_AVAILABLE and
-                config.CHART_CLASSIFICATION_USE_ENHANCED
-            )
-            
-            if use_enhanced:
+            # v1.7: Use enhanced classifier if available
+            if enhanced_classifier is not None:
+                try:
+                    subtype, conf, kws, debug = enhanced_classifier.classify(
+                        str(full_img_path),
+                        caption_text,
+                        snippet_text,
+                        ocr_text
+                    )
+                    
+                    ai_data["subtype"] = subtype
+                    ai_data["subtype_confidence"] = conf
+                    ai_data["keywords"] = kws
+                    ai_data["debug"].update(debug)
+                    ai_data["method"] = "enhanced_classifier_v1.7"
+                    
+                except Exception as e:
+                    logger.warning(f"Enhanced classifier failed, using fallback: {e}")
+                    # Fallback to old method
+                    subtype, conf, kws, debug = classify_figure_subtype(
+                        str(full_img_path), caption_text, snippet_text, ocr_text
+                    )
+                    ai_data["subtype"] = subtype
+                    ai_data["subtype_confidence"] = conf
+                    ai_data["keywords"] = kws
+                    ai_data["debug"].update(debug)
+            elif CHART_CLASSIFIER_AVAILABLE and config.CHART_CLASSIFICATION_USE_ENHANCED:
                 try:
                     chart_config = {
                         'enable_visual_analysis': config.CHART_CLASSIFICATION_VISUAL,
@@ -205,8 +277,7 @@ def enrich_items_with_ai(items: list, ingest_data: dict, capabilities: dict) -> 
                         'visual_weight': config.CHART_CLASSIFICATION_VISUAL_WEIGHT,
                         'keyword_weight': config.CHART_CLASSIFICATION_KEYWORD_WEIGHT
                     }
-                    
-                    # Use enhanced classifier with fallback
+
                     subtype, conf, kws, debug = chart_classifier.classify_chart_type(
                         str(full_img_path),
                         caption_text,
@@ -215,16 +286,14 @@ def enrich_items_with_ai(items: list, ingest_data: dict, capabilities: dict) -> 
                         config=chart_config,
                         fallback_classifier=classify_figure_subtype
                     )
-                    
+
                     ai_data["subtype"] = subtype
                     ai_data["subtype_confidence"] = conf
                     ai_data["keywords"] = kws
                     ai_data["debug"].update(debug)
                     ai_data["method"] = "enhanced_classifier_v1.3"
-                    
                 except Exception as e:
                     logger.warning(f"Enhanced classifier failed, using fallback: {e}")
-                    # Fallback to old method
                     subtype, conf, kws, debug = classify_figure_subtype(
                         str(full_img_path), caption_text, snippet_text, ocr_text
                     )
@@ -294,10 +363,37 @@ def enrich_items_with_ai(items: list, ingest_data: dict, capabilities: dict) -> 
         elif item["type"] == "table":
             ai_data["subtype"] = "table"
             ai_data["subtype_confidence"] = 1.0
-            
-        # 3. Condition Extraction
+            preview_path = item["artifacts"].get("preview_png")
+            if preview_path:
+                full_preview = config.OUTPUT_DIR / ingest_data["doc_id"] / preview_path
+                if os.path.exists(full_preview):
+                    ai_data["table_structure"] = _analyze_table_structure(str(full_preview))
+        
+        # 3. Enhanced AI analysis (optional)
+        analysis_result = None
+        if enhanced_analyzer is not None and item["type"] == "figure":
+            try:
+                analysis_result = enhanced_analyzer.analyze_robust(
+                    str(full_img_path),
+                    item["type"],
+                    caption_text,
+                    snippet_text,
+                    ocr_text
+                )
+                ai_data["debug"]["enhanced_analysis"] = analysis_result.debug
+            except Exception as e:
+                logger.warning(f"Enhanced analyzer failed: {e}")
+
+        # 4. Condition Extraction
         extraction = extract_scientific_conditions(full_text + " " + ocr_text)
         ai_data["conditions"] = extraction["conditions"]
+        if analysis_result is not None:
+            if ai_data["subtype"] == "unknown" or ai_data["subtype_confidence"] < 0.4:
+                ai_data["subtype"] = analysis_result.subtype
+                ai_data["subtype_confidence"] = analysis_result.subtype_confidence
+            ai_data["conditions"].extend(analysis_result.conditions)
+            ai_data["material_candidates"] = analysis_result.materials
+            ai_data["keywords"] = list(set(ai_data["keywords"] + analysis_result.keywords))
         
         # Save to item
         item["ai_annotations"] = ai_data

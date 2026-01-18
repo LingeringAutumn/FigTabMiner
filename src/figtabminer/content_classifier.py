@@ -3,7 +3,7 @@ Content classifier to distinguish between different types of content.
 Helps filter out false positives like math equations misidentified as tables.
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 import numpy as np
 import cv2
 import re
@@ -231,6 +231,19 @@ class ContentClassifier:
                 if text_pattern_count >= 1 and height < h * 0.08:
                     logger.debug(f"Invalid table: looks like section title or paragraph")
                     return False
+
+        # Check 5.1: Paragraph-like alignment with weak line structure
+        if page_image is not None and text_lines:
+            h_lines, v_lines = self._detect_table_lines(bbox, page_image)
+            if h_lines < 30 and v_lines < 30:
+                line_boxes = self._get_lines_in_bbox(bbox, text_lines)
+                if len(line_boxes) >= 4:
+                    widths = [lb[2] - lb[0] for lb in line_boxes]
+                    if widths:
+                        width_std = np.std(widths) / max(1.0, np.mean(widths))
+                        if width_std < 0.15:
+                            logger.debug("Invalid table: paragraph-like alignment with weak structure")
+                            return False
         
         # Check 6: Visual structure - ENHANCED with stricter criteria
         if page_image is not None:
@@ -414,3 +427,37 @@ class ContentClassifier:
                 nearby_texts.append(line['text'])
         
         return ' '.join(nearby_texts)
+
+    def _get_lines_in_bbox(self, bbox: List[float], text_lines: List[Dict]) -> List[List[float]]:
+        """Get text line bboxes inside a bbox."""
+        lines = []
+        for line in text_lines:
+            if 'bbox' not in line:
+                continue
+            lb = line['bbox']
+            if lb[2] <= bbox[0] or lb[0] >= bbox[2] or lb[3] <= bbox[1] or lb[1] >= bbox[3]:
+                continue
+            lines.append(lb)
+        return lines
+
+    def _detect_table_lines(self, bbox: List[float], page_image: np.ndarray) -> Tuple[int, int]:
+        """Detect horizontal and vertical line pixels inside bbox."""
+        try:
+            x0, y0, x1, y1 = [int(c) for c in bbox]
+            h, w = page_image.shape[:2]
+            x0, y0 = max(0, x0), max(0, y0)
+            x1, y1 = min(w, x1), min(h, y1)
+            if x1 <= x0 or y1 <= y0:
+                return 0, 0
+            crop = page_image[y0:y1, x0:x1]
+            if crop.size == 0:
+                return 0, 0
+            gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) if len(crop.shape) == 3 else crop
+            edges = cv2.Canny(gray, 50, 150)
+            h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (40, 1))
+            v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 40))
+            h_lines = cv2.morphologyEx(edges, cv2.MORPH_OPEN, h_kernel)
+            v_lines = cv2.morphologyEx(edges, cv2.MORPH_OPEN, v_kernel)
+            return int(np.count_nonzero(h_lines)), int(np.count_nonzero(v_lines))
+        except Exception:
+            return 0, 0

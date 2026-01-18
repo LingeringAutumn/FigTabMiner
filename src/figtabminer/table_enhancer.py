@@ -149,38 +149,54 @@ class TableEnhancer:
             # 加载图像
             img_doc = Image(src=image_path)
             
-            # 检测表格
-            # implicit_rows=True: 允许检测没有明显行分隔线的表格
-            # borderless_tables=True: 允许检测无边框表格
-            # min_confidence=self.min_confidence: 最低置信度
-            tables = img_doc.extract_tables(
-                ocr=ocr,
-                implicit_rows=True,
-                borderless_tables=False,  # 只检测有边框的表格（三线表、两线表）
-                min_confidence=int(self.min_confidence * 100)  # img2table使用0-100的置信度
-            )
+            # 检测表格：尝试多种参数以覆盖三线表/两线表/无边框表格
+            param_sets = [
+                {"implicit_rows": True, "borderless_tables": False},
+                {"implicit_rows": True, "borderless_tables": True},
+                {"implicit_rows": False, "borderless_tables": False},
+            ]
+            tables = []
+            for params in param_sets:
+                try:
+                    detected = img_doc.extract_tables(
+                        ocr=ocr,
+                        implicit_rows=params["implicit_rows"],
+                        borderless_tables=params["borderless_tables"],
+                        min_confidence=int(self.min_confidence * 100)
+                    )
+                    if detected:
+                        tables.extend(detected)
+                except Exception as e:
+                    logger.debug(f"img2table params {params} failed: {e}")
             
-            # 转换为Detection对象
+            # 转换为Detection对象并去重
             detections = []
             for table in tables:
                 # img2table返回的bbox格式: (x1, y1, x2, y2)
                 bbox = [table.bbox.x1, table.bbox.y1, table.bbox.x2, table.bbox.y2]
-                
-                # 收缩bbox以避免包含过多正文
                 if self.shrink_bbox:
                     bbox = self._shrink_bbox(bbox, self.shrink_ratio)
-                
-                # 创建Detection对象
                 det = Detection(
                     type='table',
                     bbox=bbox,
-                    score=0.8,  # img2table不提供置信度，使用固定值
-                    page_num=0
+                    score=0.8,
+                    detector='img2table'
                 )
                 detections.append(det)
+
+            # Deduplicate by IoU
+            unique = []
+            for det in detections:
+                is_dup = False
+                for kept in unique:
+                    if self._calculate_iou(det.bbox, kept.bbox) > 0.7:
+                        is_dup = True
+                        break
+                if not is_dup:
+                    unique.append(det)
             
-            logger.info(f"img2table detected {len(detections)} tables")
-            return detections
+            logger.info(f"img2table detected {len(unique)} tables")
+            return unique
             
         except ImportError as e:
             logger.warning(f"img2table import failed: {e}")

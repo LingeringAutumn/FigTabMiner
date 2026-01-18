@@ -37,7 +37,7 @@ def extract_tables(pdf_path: str, ingest_data: dict, capabilities: dict) -> list
     Uses enhanced extractor if available, otherwise falls back to basic version.
     """
     # Try enhanced extractor first
-    if ENHANCED_AVAILABLE:
+    if ENHANCED_AVAILABLE and config.TABLE_EXTRACTION_USE_ENHANCED:
         logger.info("Using enhanced table extractor")
         try:
             return table_extract_v2.extract_tables(pdf_path, ingest_data, capabilities)

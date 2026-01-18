@@ -603,9 +603,13 @@ def detect_layout(page_img_path: str, page_text: Optional[str] = None) -> List[d
         logger.debug("PubLayNet not available, no fallback")
     
     # Apply filters in order:
-    # 1. Text false positive filter (remove text false positives) - MOST IMPORTANT
-    # 2. Reclassify based on captions (fix figure/table misclassification)
-    # NOTE: Disabled arXiv filter and Table enhancer as they introduce more problems
+    # 1. Table enhancer (only if no table detections were found)
+    # 2. Text false positive filter (remove text false positives)
+    # 3. Reclassify based on captions (fix figure/table misclassification)
+    if config.TABLE_ENHANCER_ENABLE_IMG2TABLE:
+        has_table = any(r["type"] == "table" for r in results)
+        if not has_table:
+            results = _apply_table_enhancer(results, page_img_path)
     if results:
         results = _apply_text_false_positive_filter(results, page_img_path, page_text)
         results = _reclassify_by_caption(results, page_text)
